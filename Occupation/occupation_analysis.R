@@ -2,10 +2,13 @@ library(psrccensus)
 library(magrittr)
 library(dplyr)
 library(srvyr)
-library(stringr)
 library(data.table)
+library(tibble)
+library(psrcplot)
+library(ggplot2)
 
-source("get_soc_projections.R")
+source("Occupation/get_soc_projections.R")
+source("Occupation/get_soc_ed_requirements.R")
 #source("get_kc_living_wage.R")
 dir  = "C:/Users/mjensen/projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
 living_wage <- 81868 #get_mit_living_wage_king_2adults_2children() * 2080 
@@ -16,33 +19,37 @@ pvars <- c(
   "AGEP",                   # Age
   "SEX",
   "ED_ATTAIN",              # Educational attainment
-  "DIS",                    # Disability
-  "ENG",                    # Ability to speak English
   "PRACE",                  # Individual race (PSRC categories)
-  "HRACE",                  # Household race (PSRC categories)
   "ESR",                    # Employment status
-  "COW",                    # Class of worker
   "WAGP",                   # Wage/Salary income
-  "HINCP",                  # Household income
-  "POVPIP",                 # Income-to-poverty ratio
   "SOCP",                   # Detailed occupation
   "SOCP3",                  # Occupational group
   "SOCP5",                  # Occupational sector
-  "OCCP",                   # Census occupational grouping
   "NAICSP"                  # Detailed industry
 )
 
-soc_projections <- get_soc_projections() %>% setDT() %>% 
-  .[, soc:=gsub("-","", soc)]
+# Get MSA projections
+soc_projections <- get_soc_projections() %>% setDT() %>%
+  .[, soc_code := gsub("-", "", soc)]
 
-# Since psrccensus delivers labels, create lookup to return SOC code itself
-soc_lookup <- tidycensus::pums_variables %>%
-  filter(var_code == "SOCP", year == datayr) %>%
-  select(c(val_max, val_label)) %>% setDT() %>%
-  setnames(c("val_max", "val_label"), c("soc_cb","SOCP_label"))
+# Get training requirements
+soc_training_req <- readxl::read_excel(
+    "Occupation/raw_data/education.xlsx",
+    sheet = "Table 5.4"
+  ) %>% setDT() %>% .[row.names.data.frame(.)!=1, 1:5] %>%
+  setnames(c("Label", "Code", "Education", "Experience", "Training")) %>%
+  .[, soc_code := gsub("-", "", Code)]
+
+# Since psrccensus delivers labels, create lookup to return SOCP code itself
+socp_from_label <- tidycensus::pums_variables %>% setDT() %>%
+  .[var_code == "SOCP" & year == datayr, .(val_max, val_label)] %>%
+  as_tibble() %>%
+  transmute(socp_label = as.character(val_label),
+            socp_code  = as.character(val_max)) %>%
+  tibble::deframe()
 
 # Retrieve the PUMS data; filter to +16 workforce and add SOC code
-pums2023_5 <- get_psrc_pums(5, datayr, "p", pvars, dir) 
+pums2023_5 <- get_psrc_pums(5, datayr, "p", pvars, dir)
 pums2023_5_wkfrc16 <- pums2023_5 %>%
   filter(
     !grepl("^Unemployed", as.character(SOCP)),
@@ -51,56 +58,69 @@ pums2023_5_wkfrc16 <- pums2023_5 %>%
     AGEP > 15
   ) %>%
   mutate(
-    soc_cb = soc_lookup$soc_cb[
-      match(as.character(SOCP), as.character(soc_lookup$SOCP_label))
-    ]
-  ) %>% ungroup() 
+    socp_code = socp_from_label[as.character(SOCP)],
+    prace_adj = factor(fifelse(grepl("Native|Other|^Two ", PRACE), 
+                               "All else", as.character(PRACE)))) %>%
+  mutate(
+    soc_code = gsub("-", "", socp_code)
+  ) %>% ungroup()
 
-soc_median_pay  <- psrc_pums_median(pums2023_5_wkfrc16, 
-                                    stat_var="WAGP", 
-                                    group_vars=c("soc_cb"), 
-                                    incl_na=FALSE) %>% setDT()
+soc_median_pay  <- psrc_pums_median(pums2023_5_wkfrc16,
+                                    stat_var = "WAGP",
+                                    group_vars = c("socp_code"),
+                                    incl_na = FALSE) %>% setDT()
 
-wkfrc16_x_race <- psrc_pums_count(pums2023_5_wkfrc16, 
-                                  group_vars=c("PRACE"), 
-                                  incl_na=FALSE) %>% setDT()
+wkfrc16_x_race <- psrc_pums_count(pums2023_5_wkfrc16,
+                                  group_vars = c("prace_adj"),
+                                  incl_na = FALSE) %>% setDT()
 
-wkfrc16_x_sex  <- psrc_pums_count(pums2023_5_wkfrc16, 
-                                  group_vars=c("SEX"), 
-                                  incl_na=FALSE) %>% setDT()
+wkfrc16_x_sex  <- psrc_pums_count(pums2023_5_wkfrc16,
+                                  group_vars = c("SEX"),
+                                  incl_na = FALSE) %>% setDT()
 
-focus_soc  <- copy(soc_median_pay) %>% .[WAGP_median > living_wage, .(soc_cb)] %>% 
-  .[, soc_match:=gsub("X", "0", soc_cb)] %>% 
-  .[soc_projections[cagr_23_33>0], on = .(soc_match==soc), nomatch = 0] %>%
-  .[, .(soc_cb, soc_match)]
+focus_soc  <- copy(soc_median_pay[WAGP_median > living_wage, .(socp_code)]) %>%
+  .[, soc_code := sub("X", "0", socp_code)] %>%
+  .[soc_projections[cagr_23_33 > 0], on = .(soc_code), nomatch = 0] %>%
+  .[, .(soc_code, socp_code)]
 
-# Mark occupations meeting wage + growth criteria; use soc_cb codes
+# Mark occupations meeting wage + growth criteria; use socp codes
 pums2023_5_wkfrc16 %<>% mutate(
-  soc_focus = if_else(soc_cb %chin% focus_soc$soc_cb, soc_cb, NA_character_)
+  soc_focus = if_else(soc_code %chin% focus_soc$soc_code, soc_code, NA_character_)
 )
 
-focus_pay_x_race <- psrc_pums_median(pums2023_5_wkfrc16, 
-                                     stat_var="WAGP", 
-                                     group_vars=c("soc_focus","PRACE"), 
-                                     incl_na=FALSE) %>% 
-  setDT() %>% .[PRACE!="Total"]
+# Flag groups with at least one observation
+pums2023_5_wkfrc16 <- pums2023_5_wkfrc16 %>%
+  group_by(soc_focus, PRACE) %>%
+  mutate(n_soc_x_race = sum(!is.na(WAGP))) %>%
+  ungroup() %>%
+  group_by(soc_focus, SEX) %>%
+  mutate(n_soc_x_sex = sum(!is.na(WAGP))) %>%
+  ungroup()
 
-focus_pay_x_sex  <- psrc_pums_median(pums2023_5_wkfrc16, 
-                                     stat_var="WAGP", 
-                                     group_vars=c("soc_focus","SEX"), 
-                                     incl_na=FALSE) %>% 
-  setDT() %>% .[SEX!="Total"]
+# Restrict the survey design/data to those combos
+pums_23_5_focus <- pums2023_5_wkfrc16 %>% filter(!is.na(soc_focus))
 
-focus_share_x_race <- psrc_pums_count(pums2023_5_wkfrc16, 
-                                      group_vars=c("soc_focus","PRACE"), 
-                                      incl_na=FALSE) %>% 
-  setDT() %>% .[PRACE!="Total"]
+focus_pay_x_race <- psrc_pums_median(filter(pums_23_5_focus, n_soc_x_race > 0), 
+                                     stat_var = "WAGP",
+                                     group_vars = c("soc_focus", "prace_adj"),
+                                     incl_na = FALSE) %>%
+  filter(prace_adj != "Total")
 
-focus_share_x_sex  <- psrc_pums_count(pums2023_5_wkfrc16, 
-                                      group_vars=c("soc_focus","SEX"), 
-                                      incl_na=FALSE) %>% 
-  setDT() %>% .[SEX!="Total"]
+focus_pay_x_sex  <- psrc_pums_median(filter(pums_23_5_focus, n_soc_x_sex > 0), 
+                                     stat_var = "WAGP",
+                                     group_vars = c("soc_focus", "SEX"),
+                                     incl_na = FALSE) %>%
+  filter(SEX != "Total")
 
+focus_share_x_race <- psrc_pums_count(filter(pums_23_5_focus, n_soc_x_race > 0), 
+                                      group_vars = c("soc_focus", "prace_adj"),
+                                      incl_na = FALSE) %>%
+  filter(prace_adj != "Total")
+
+focus_share_x_sex  <- psrc_pums_count(filter(pums_23_5_focus, n_soc_x_sex > 0), 
+                                      group_vars = c("soc_focus", "SEX"),
+                                      incl_na = FALSE) %>%
+  filter(SEX != "Total")
 
 # ---- Total Variation Distance (TVD) metrics ----
 # TVD(P,Q) = 0.5 * sum_i |p_i - q_i| across categories i.
@@ -108,7 +128,7 @@ focus_share_x_sex  <- psrc_pums_count(pums2023_5_wkfrc16,
 # diff_moe_i = sqrt(share_moe_focus_i^2 + share_moe_overall_i^2)
 # tvd_moe ≈ 0.5 * sqrt(sum(diff_moe_i^2)) [root-sum-square after scaling].
 
-compute_tvd <- function(focus_dt, overall_dt, category_col, soc_col = "soc_cb",
+compute_tvd <- function(focus_dt, overall_dt, category_col, soc_col = "soc_focus",
                         share_col = "share", share_moe_col = "share_moe",
                         include_moe = TRUE) {
   # Base R implementation to avoid NSE lint issues
@@ -118,13 +138,13 @@ compute_tvd <- function(focus_dt, overall_dt, category_col, soc_col = "soc_cb",
   # Shares
   fsub <- f[, c(soc_col, category_col, share_col)]
   osub <- o[, c(category_col, share_col)]
-  colnames(fsub) <- c("soc_cb","cat","focus_share")
-  colnames(osub) <- c("cat","overall_share")
+  colnames(fsub) <- c("soc_focus", "cat", "focus_share")
+  colnames(osub) <- c("cat", "overall_share")
   merged <- merge(osub, fsub, by = "cat", all.x = TRUE)
   merged$focus_share[is.na(merged$focus_share)] <- 0
   merged$overall_share[is.na(merged$overall_share)] <- 0
   merged$diff <- abs(merged$focus_share - merged$overall_share)
-  tvd <- aggregate(diff ~ soc_cb, data = merged, FUN = sum)
+  tvd <- aggregate(diff ~ soc_focus, data = merged, FUN = sum)
   tvd$tvd <- 0.5 * tvd$diff
   tvd$diff <- NULL
 
@@ -132,15 +152,15 @@ compute_tvd <- function(focus_dt, overall_dt, category_col, soc_col = "soc_cb",
   if (isTRUE(include_moe) && share_moe_col %in% names(f) && share_moe_col %in% names(o)) {
     fmoe <- f[, c(soc_col, category_col, share_moe_col)]
     omoe <- o[, c(category_col, share_moe_col)]
-    colnames(fmoe) <- c("soc_cb","cat","focus_moe")
-    colnames(omoe) <- c("cat","overall_moe")
+    colnames(fmoe) <- c("soc_focus", "cat", "focus_moe")
+    colnames(omoe) <- c("cat", "overall_moe")
     merged_moe <- merge(omoe, fmoe, by = "cat", all.x = TRUE)
     merged_moe$focus_moe[is.na(merged_moe$focus_moe)] <- 0
     merged_moe$overall_moe[is.na(merged_moe$overall_moe)] <- 0
     merged_moe$diff_moe <- sqrt(merged_moe$focus_moe^2 + merged_moe$overall_moe^2)
-    tvd_moe <- aggregate(diff_moe ~ soc_cb, data = merged_moe, FUN = function(x) 0.5 * sqrt(sum(x^2)))
+    tvd_moe <- aggregate(diff_moe ~ soc_focus, data = merged_moe, FUN = function(x) 0.5 * sqrt(sum(x^2)))
     colnames(tvd_moe)[colnames(tvd_moe) == "diff_moe"] <- "tvd_moe"
-    tvd <- merge(tvd, tvd_moe, by = "soc_cb", all.x = TRUE)
+    tvd <- merge(tvd, tvd_moe, by = "soc_focus", all.x = TRUE)
   }
 
   setDT(tvd)
@@ -148,24 +168,121 @@ compute_tvd <- function(focus_dt, overall_dt, category_col, soc_col = "soc_cb",
 }
 
 # Race TVD
-if (exists("wkfrc16_x_race") && exists("focus_share_x_race") && 
+if (exists("wkfrc16_x_race") && exists("focus_share_x_race") &&
     !is.null(wkfrc16_x_race) && !is.null(focus_share_x_race)) {
-  # Use soc_col matching focus tables (`soc_focus`), not default `soc_cb`
-  focus_tvd_race <- compute_tvd(focus_share_x_race, 
-                                wkfrc16_x_race, 
-                                category_col = "PRACE", 
-                                soc_col = "soc_focus")
+  focus_tvd_race <- compute_tvd(focus_share_x_race,
+                                wkfrc16_x_race,
+                                category_col = "prace_adj",
+                                soc_col = "soc_focus") %>% setDT() %>%
+    setnames(c("tvd", "tvd_moe"), c("tvd_race", "tvd_race_moe"), skip_absent = TRUE) 
 } else {
   focus_tvd_race <- NULL
 }
 
 # Sex TVD
-if (exists("wkfrc16_x_sex") && exists("focus_share_x_sex") && 
+if (exists("wkfrc16_x_sex") && exists("focus_share_x_sex") &&
     !is.null(wkfrc16_x_sex) && !is.null(focus_share_x_sex)) {
-  focus_tvd_sex <- compute_tvd(focus_share_x_sex, 
-                               wkfrc16_x_sex, 
-                               category_col = "SEX", 
-                               soc_col = "soc_focus")
+  focus_tvd_sex <- compute_tvd(focus_share_x_sex,
+                               wkfrc16_x_sex,
+                               category_col = "SEX",
+                               soc_col = "soc_focus") %>% setDT() %>%
+    setnames(c("tvd", "tvd_moe"), c("tvd_sex", "tvd_sex_moe"), skip_absent = TRUE) 
 } else {
   focus_tvd_sex <- NULL
 }
+
+# --- Combined table for comparisons --- 
+soc_stats <- copy(focus_soc) %>% 
+  .[soc_projections,   on = .(soc_code)] %>%
+  .[soc_training_req,  on = .(soc_code)] %>%
+  .[soc_median_pay,    on = .(socp_code)] %>%
+  .[focus_tvd_race, on = .(soc_code = soc_focus)] %>%
+  .[focus_tvd_sex,  on = .(soc_code = soc_focus)] %>%
+  .[!is.na(cagr_23_33), .(soc_code, Label, emp_2023, emp_2033, cagr_23_33,
+                          openings_total_23_33, Education, WAGP_median, 
+                          WAGP_median_moe, tvd_race, tvd_race_moe, 
+                          tvd_sex, tvd_sex_moe)] %>%
+  setorder(-openings_total_23_33)
+
+# --- Occupational concentration by race/ethnicity--- 
+
+focus_share_x_race_dt <- copy(focus_share_x_race) %>%
+  setDT() %>% .[
+    !is.na(soc_focus),
+    .(soc_focus, prace_adj, share_focus = share, share_moe_focus = share_moe)
+  ]
+
+wkfrc16_x_race_dt <- copy(wkfrc16_x_race) %>%
+  setDT() %>% .[
+    ,
+    .(prace_adj, share_overall = share, share_moe_overall = share_moe)
+  ]
+
+# Long format: difference in race/ethnicity share and its Z-score
+race_conc_long <- merge(
+  wkfrc16_x_race_dt,
+  focus_share_x_race_dt,
+  by = "prace_adj",
+  allow.cartesian = TRUE
+)
+
+# Difference in shares: + means overrepresented in occupation vs workforce
+race_conc_long[
+  ,
+  diff_share := share_focus - share_overall
+]
+
+# Approximate MOE of the share difference and corresponding Z-score
+# Assumes share_moe_* are 90% MOEs (so z_crit ≈ qnorm(0.95))
+z_crit <- qnorm(0.95)
+
+race_conc_long[
+  ,
+  diff_moe := sqrt(share_moe_focus^2 + share_moe_overall^2)
+][
+  ,
+  z_score := fifelse(
+    diff_moe > 0,
+    diff_share * z_crit / diff_moe,
+    NA_real_
+  )
+]
+
+# Make prace_adj into safe column names
+race_conc_long[
+  ,
+  race_code := make.names(as.character(prace_adj))
+]
+
+# Wide crosstab: one row per occupation, two cols per prace_adj (diff + z)
+race_levels <- sort(unique(race_conc_long$race_code))
+
+race_diff_wide <- dcast(
+  race_conc_long,
+  soc_focus ~ race_code,
+  value.var = "diff_share"
+)
+setnames(
+  race_diff_wide,
+  old = race_levels,
+  new = paste0(race_levels, "_diff")
+)
+
+race_z_wide <- dcast(
+  race_conc_long,
+  soc_focus ~ race_code,
+  value.var = "z_score"
+)
+setnames(
+  race_z_wide,
+  old = race_levels,
+  new = paste0(race_levels, "_z")
+)
+
+# Final crosstab: one row per focus_soc occupation
+race_conc_crosstab <- merge(
+  race_diff_wide,
+  race_z_wide,
+  by = "soc_focus",
+  all = TRUE
+)
