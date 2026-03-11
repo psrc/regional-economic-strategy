@@ -14,7 +14,35 @@ suppressPackageStartupMessages({
   library(ggplot2)
 })
 
-if (!exists("soc_stats", inherits = TRUE) || !exists("race_conc_long", inherits = TRUE)) {
+.required_soc_stats_cols <- c(
+  "Label",
+  "openings_total_23_33",
+  "WAGP_median",
+  "poc_share_diff",
+  "female_share_diff"
+)
+
+.required_race_conc_cols <- c("soc_focus", "prace_adj", "diff_share", "z_score")
+
+.has_required_cols <- function(df, cols) {
+  is.data.frame(df) && all(cols %in% names(df))
+}
+
+.get_object_if_valid <- function(name, cols, env = parent.frame(), inherits = TRUE) {
+  if (!exists(name, envir = env, inherits = inherits)) {
+    return(NULL)
+  }
+
+  obj <- get(name, envir = env, inherits = inherits)
+  if (!.has_required_cols(obj, cols)) {
+    return(NULL)
+  }
+
+  obj
+}
+
+if (is.null(.get_object_if_valid("soc_stats", .required_soc_stats_cols)) ||
+    is.null(.get_object_if_valid("race_conc_long", .required_race_conc_cols))) {
   source("Occupation/occupation_analysis.R")
 }
 
@@ -36,13 +64,14 @@ if (!exists("soc_stats", inherits = TRUE) || !exists("race_conc_long", inherits 
   trimws(x)
 }
 
-#' Bubble chart: focus occupations by TVD (race) and TVD (sex)
+#' Bubble chart: focus occupations by signed POC and female concentration
 #'
 #' This is the bubble plot previously at the end of occupation_analysis.R,
 #' refactored into a plot-builder function.
 #'
 #' @param soc_stats Occupation stats table.
-#'   Required cols: Label, openings_total_23_33, WAGP_median, tvd_race, tvd_sex.
+#'   Required cols: Label, openings_total_23_33, WAGP_median,
+#'   poc_share_diff, female_share_diff.
 #' @param openings_min Filter threshold for openings_total_23_33.
 #' @param label_width Wrap width for occupation labels.
 #' @param max_size Max bubble size.
@@ -54,9 +83,25 @@ make_focus_bubble_plot <- function(
     label_width = 25,
     max_size = 14) {
 
+  if (!.has_required_cols(soc_stats, .required_soc_stats_cols)) {
+    analysis_env <- new.env(parent = parent.frame())
+    source("Occupation/occupation_analysis.R", local = analysis_env)
+
+    refreshed_soc_stats <- .get_object_if_valid(
+      "soc_stats",
+      .required_soc_stats_cols,
+      env = analysis_env,
+      inherits = FALSE
+    )
+
+    if (!is.null(refreshed_soc_stats)) {
+      soc_stats <- refreshed_soc_stats
+    }
+  }
+
   .check_cols(
     soc_stats,
-    c("Label", "openings_total_23_33", "WAGP_median", "tvd_race", "tvd_sex"),
+    .required_soc_stats_cols,
     "soc_stats"
   )
 
@@ -65,6 +110,8 @@ make_focus_bubble_plot <- function(
     mutate(
       Label_short = .clip_occ_label(Label),
       WAGP_median = as.numeric(WAGP_median),
+      x_coord = as.numeric(poc_share_diff),
+      y_coord = as.numeric(female_share_diff),
       Label_wrapped = ifelse(
         is.na(Label_short),
         NA_character_,
@@ -74,32 +121,47 @@ make_focus_bubble_plot <- function(
           character(1)
         )
       ),
-      r_origin = sqrt(tvd_race^2 + tvd_sex^2),
+      r_origin = sqrt(x_coord^2 + y_coord^2),
       r_outer = r_origin >= median(r_origin, na.rm = TRUE),
       quadrant = dplyr::case_when(
-        is.na(tvd_race) | is.na(tvd_sex) ~ NA_character_,
-        tvd_race >= 0 & tvd_sex >= 0 ~ "Q1",
-        tvd_race < 0 & tvd_sex >= 0 ~ "Q2",
-        tvd_race < 0 & tvd_sex < 0 ~ "Q3",
+        is.na(x_coord) | is.na(y_coord) ~ NA_character_,
+        x_coord >= 0 & y_coord >= 0 ~ "Q1",
+        x_coord < 0 & y_coord >= 0 ~ "Q2",
+        x_coord < 0 & y_coord < 0 ~ "Q3",
         TRUE ~ "Q4"
       )
     )
 
+  x_lim <- suppressWarnings(max(abs(soc_plot_df$x_coord), na.rm = TRUE))
+  y_lim <- suppressWarnings(max(abs(soc_plot_df$y_coord), na.rm = TRUE))
+
+  if (!is.finite(x_lim) || x_lim == 0) {
+    x_lim <- 0.01
+  }
+  if (!is.finite(y_lim) || y_lim == 0) {
+    y_lim <- 0.01
+  }
+
+  x_lim <- x_lim * 1.08
+  y_lim <- y_lim * 1.08
+
   # Size nudges relative to data range
-  x_rng <- diff(range(soc_plot_df$tvd_race, na.rm = TRUE))
-  y_rng <- diff(range(soc_plot_df$tvd_sex, na.rm = TRUE))
+  x_rng <- 2 * x_lim
+  y_rng <- 2 * y_lim
   dx <- if (is.finite(x_rng) && x_rng > 0) 0.03 * x_rng else 0.02
   dy <- if (is.finite(y_rng) && y_rng > 0) 0.03 * y_rng else 0.02
 
   p <- ggplot2::ggplot(
     soc_plot_df,
     ggplot2::aes(
-      x = tvd_race,
-      y = tvd_sex,
+      x = x_coord,
+      y = y_coord,
       size = openings_total_23_33,
       fill = WAGP_median
     )
   ) +
+    ggplot2::geom_vline(xintercept = 0, color = "grey70", linewidth = 0.4) +
+    ggplot2::geom_hline(yintercept = 0, color = "grey70", linewidth = 0.4) +
     ggplot2::geom_point(
       shape = 21,
       color = "grey25",
@@ -113,10 +175,21 @@ make_focus_bubble_plot <- function(
       na.value = "grey80",
       name = "Median wage"
     ) +
+    ggplot2::scale_x_continuous(
+      limits = c(-x_lim, x_lim),
+      labels = scales::label_percent(accuracy = 1),
+      expand = ggplot2::expansion(mult = 0.02)
+    ) +
+    ggplot2::scale_y_continuous(
+      limits = c(-y_lim, y_lim),
+      labels = scales::label_percent(accuracy = 1),
+      expand = ggplot2::expansion(mult = 0.02)
+    ) +
     ggplot2::scale_size_area(max_size = max_size, name = "Openings (23–33)") +
     ggplot2::labs(
-      x = "TVD vs workforce (race/ethnicity)",
-      y = "TVD vs workforce (sex)"
+      x = "POC share difference (occupation - workforce)",
+      y = "Female share difference (occupation - workforce)",
+      subtitle = "Positive x = POC, negative x = Non-POC; positive y = female, negative y = male"
     ) +
     ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
@@ -129,7 +202,7 @@ make_focus_bubble_plot <- function(
       ggrepel::geom_text_repel(
         data = df,
         mapping = ggplot2::aes(label = Label_wrapped),
-        size = 2.2,
+        size = 4,
         nudge_x = nudge_x,
         nudge_y = nudge_y,
         min.segment.length = 0,
@@ -322,10 +395,10 @@ make_race_conc_cleveland <- function(
 # If race_conc_long / soc_stats aren't already in memory, this file will source
 # Occupation/occupation_analysis.R once.
 #
-# p0 <- make_focus_bubble_plot(soc_stats, openings_min = 5000)
-# p1 <- make_race_conc_heatmap_z(race_conc_long, soc_stats, openings_min = 5000)
-# p2 <- make_race_conc_cleveland(race_conc_long, soc_stats, openings_min = 5000)
-#
-# print(p0)
-# print(p1)
-# print(p2)
+p0 <- make_focus_bubble_plot(soc_stats, openings_min = 500)
+p1 <- make_race_conc_heatmap_z(race_conc_long, soc_stats, openings_min = 0, z_limit=20)
+p2 <- make_race_conc_cleveland(race_conc_long, soc_stats, openings_min = 0)
+
+print(p0)
+print(p1)
+print(p2)
