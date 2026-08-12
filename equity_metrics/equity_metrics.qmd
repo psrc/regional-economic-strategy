@@ -1,0 +1,67 @@
+---
+title: "equity_metrics"
+format: html
+editor: visual
+---
+
+## Background
+
+x \<- get_acs_recs("county", table.names=paste("C23002",A:I), years = 2024, acs.type = "acs5") %\>% dplyr::filter(name == "Region")
+
+```{r}
+# Population by race/ethnicity
+source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/01-pop-by-race-census_categories.R")
+
+# Median household income by race/ethnicity
+source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/04-median-hh-income-race.R")
+
+# Poverty rates by race/ethnicity
+source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/02-pop-low-income.R")
+
+# Unemployment / labor force participation (16 and over) by gender and race/ethnicity
+source("labor_force_unemployment.R")
+dt_lf_2024 <- get_regional_acs_labor_force_data(2024)
+
+dt_lf_prepped <- prep_labor_force_data(dt_lf_2024)
+lf_p <- plot_lf_rate(dt_lf_prepped, participation_rate, whiskers = TRUE)
+
+dt_unemp_prepped <- prep_unemployment_data(dt_lf_2024)
+unemp_p <- plot_lf_rate(dt_unemp_prepped, unemployment_rate, whiskers = TRUE)
+
+```
+
+## Economic Opportunity
+
+```{r}
+
+# Educational Attainment
+source("../Education/education.R")
+
+# Kindergarten readiness - direct sourcing
+# -- uses RSocrata `remotes::install_github("Chicago/RSocrata")` 
+source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
+kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-26 school year
+
+```
+
+## Quality of Life
+
+```{r}
+# Homeonwnership by race
+source("https://raw.githubusercontent.com/psrc/housing-metrics/refs/heads/main/2026_update/metric05_tenure_by_race_inc.R")
+
+# Renter cost burden by race
+source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_update/metric19_cost_burden_by_race_inc.R")
+```
+
+## Business Climate
+
+```{r}
+
+```
+
+## Global Competitiveness
+
+```{r}
+
+```
