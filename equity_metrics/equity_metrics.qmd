@@ -20,13 +20,21 @@ source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/ma
 
 # Unemployment / labor force participation (16 and over) by gender and race/ethnicity
 source("labor_force_unemployment.R")
-dt_lf_2024 <- get_regional_acs_labor_force_data(2024)
+pums_lf_2024 <- get_pums_labor_force_data(2024)
 
-dt_lf_prepped <- prep_labor_force_data(dt_lf_2024)
-lf_p <- plot_lf_rate(dt_lf_prepped, participation_rate, whiskers = TRUE)
+lfp_rates <- summarize_labor_force_by_race_sex(pums_lf_2024)
+lf_p <- plot_lf_rate(
+    filter(lfp_rates, labor_force_status == "In labor force"),
+    "share",
+    whiskers = TRUE
+)
 
-dt_unemp_prepped <- prep_unemployment_data(dt_lf_2024)
-unemp_p <- plot_lf_rate(dt_unemp_prepped, unemployment_rate, whiskers = TRUE)
+unemp_rates <- summarize_employment_by_race_sex(pums_lf_2024)
+unemp_p <- plot_lf_rate(
+    filter(unemp_rates, employment_status == "Unemployed"),
+    "share",
+    whiskers = TRUE
+)
 
 ```
 
@@ -55,17 +63,17 @@ source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_up
 
 # Internet Access by race/ethnicity
 source(internet_access.R)
-dt_net <- get_regional_acs_internet_data(2024)
-dt_net_prepped <- prep_internet_data(dt_net)
+pumsdata <- get_regional_hrace_internet_access(2024)
+result_df <- summarize_regional_hrace_internet_access(pumsdata)
 
 net_access_p <- psrcplot::static_bar_chart(
-                    t = dt_net_prepped[internet_status!="dial-up"],
-                    y = "race",
-                    x = "internet_status_share",
-                    fill = "internet_status",
+                    t = filter(result_df, internet != "Total"),
+                    y = "HRACE",
+                    x = "share",
+                    fill = "internet",
                     title = "Internet Access by Race/Ethnicity",
                     alt = "Chart of Internet Access by Race/Ethnicity",
-                    source = paste("Source: ACS 5-Year Estimates, tables B28009A-I",
+                    source = paste("Source: ACS PUMS 2020-2024 5-year microdata",
                                  "for King, Kitsap, Pierce and Snohomish counties.",
                                  sep = "\n"),
                     color="pgnobgy_5", pos = "stack")

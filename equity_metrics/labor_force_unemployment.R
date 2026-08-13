@@ -1,120 +1,53 @@
 library(psrccensus)
 library(magrittr)
+library(dplyr)
 library(data.table)
 
+# for faster/more reliable access; use pums_rds = NULL when lacking access to J drive
+jrds = "J:/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
 
-# Retrieve ACS data for PSRC region, combining separate tables for each race/ethnicity.
-# Resticted to working age (16-64)
-get_regional_acs_labor_force_data <- function(year, acs.type = "acs5"){
-  dt_lf <- suppressMessages(
-    get_acs_recs("county", 
-                 table.names=paste0("C23002", toupper(letters[1:9])),
-                 years = year, acs.type = acs.type)) %>% setDT() %>%
-    .[GEOID == "REGION" & grepl("16 to 64 years", label)==TRUE] %>%
-    .[, `:=`(race  = sub(" Alone", "", 
-                         sub(".*\\((.*?)\\).*", "\\1", concept)),
-             label = gsub(":", "",
-                         sub("Civilian:!!", "",
-                             sub("^Estimate!!Total:(!!)?", "", label))))] %>%
-    .[, c("sex", "age", "labor_force_status", "emp_status") := tstrsplit(label, "!!", fixed = TRUE, fill= "Total")]
-  return(dt_lf)
+# Retrieve PUMS data for PSRC region; limit to working age (16-64)
+get_pums_labor_force_data <- function(dyear, span = 5, pums_rds = jrds){
+  pvars <- c("SEX", "AGEP", "PRACE", "ESR")
+  pumsdata <- get_psrc_pums(span=span, dyear=dyear, "p", pvars, dir=pums_rds)
+  pumsdata %<>% mutate(
+    labor_force_status = case_when(
+      AGEP < 16 ~ NA_character_,
+      AGEP > 15 & grepl("^(Civilian|Armed|Unemployed)", ESR) ~ "In labor force",
+      TRUE ~ ESR
+    ),
+    employment_status = case_when(
+      AGEP < 16 | grepl("^Not", ESR) ~ NA_character_,
+      AGEP > 15 & grepl("^(Civilian|Armed)", ESR) ~ "Employed",
+      TRUE ~ ESR
+    ),
+    PRACE_x_SEX = paste0(PRACE, ";", SEX)
+  )
+  return(pumsdata)
 }
 
-# From the labor force data.table, pull a smaller table with labor force participation rate
-prep_labor_force_data <- function(dt_lf){
-  dt_lf_2cats <- copy(dt_lf)[
-    labor_force_status %in% c("Total", "Not in labor force") &
-      emp_status == "Total",
-    .(year, race, sex, labor_force_status, estimate, moe)
-  ]
-
-  dt_lf_prepped <- dt_lf_2cats[, .(
-    working_age_total = sum(estimate[labor_force_status == "Total"], na.rm = TRUE),
-    working_age_total_moe = tidycensus::moe_sum(
-      moe[labor_force_status == "Total"],
-      estimate[labor_force_status == "Total"],
-      na.rm = TRUE
-    ),
-    not_in_labor_force = sum(estimate[labor_force_status == "Not in labor force"], na.rm = TRUE),
-    not_in_labor_force_moe = tidycensus::moe_sum(
-      moe[labor_force_status == "Not in labor force"],
-      estimate[labor_force_status == "Not in labor force"],
-      na.rm = TRUE
-    )
-  ), by = .(year, race, sex)]
-
-  dt_lf_prepped[, `:=`(
-    participation_rate = fifelse(
-      working_age_total > 0,
-      1 - (not_in_labor_force / working_age_total),
-      NA_real_
-    ),
-    participation_rate_moe = mapply(
-    function(est_not, est_total, moe_not, moe_total) {
-      if (is.na(est_total) || est_total <= 0) {
-        return(NA_real_)
-      }
-      # MOE of 1 - p is the same as MOE of p; compute p = not_in / total.
-      tidycensus::moe_prop(est_not, est_total, moe_not, moe_total)
-    },
-    not_in_labor_force,
-    working_age_total,
-    not_in_labor_force_moe,
-    working_age_total_moe
-  ))]
-
-  return(dt_lf_prepped[])
+# Summarize labor force data by race and sex
+summarize_labor_force_by_race_sex <- function(pumsdata){
+  result_lfprate <- psrc_pums_count(pumsdata, 
+                                    group_vars = c("PRACE_x_SEX", "labor_force_status"), 
+                                    incl_na=FALSE) %>%
+   tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+  return(result_lfprate)
 }
 
-# From the labor force data.table, pull a smaller table with unemployment rate
-prep_unemployment_data <- function(dt_lf){
-  dt_unemp_2cats <- copy(dt_lf)[
-    emp_status %in% c("Total", "Unemployed") &
-      labor_force_status == "In labor force",
-    .(year, race, sex, emp_status, estimate, moe)
-  ]
-
-  dt_unemp_prepped <- dt_unemp_2cats[, .(
-    labor_force_total = sum(estimate[emp_status == "Total"], na.rm = TRUE),
-    labor_force_total_moe = tidycensus::moe_sum(
-      moe[emp_status == "Total"],
-      estimate[emp_status == "Total"],
-      na.rm = TRUE
-    ),
-    unemployed = sum(estimate[emp_status == "Unemployed"], na.rm = TRUE),
-    unemployed_moe = tidycensus::moe_sum(
-      moe[emp_status == "Unemployed"],
-      estimate[emp_status == "Unemployed"],
-      na.rm = TRUE
-    )
-  ), by = .(year, race, sex)]
-
-  dt_unemp_prepped[, `:=`(
-    unemployment_rate = fifelse(
-      labor_force_total > 0,
-      unemployed / labor_force_total,
-      NA_real_
-    ),
-    unemployment_rate_moe = mapply(
-    function(est_unemp, est_total, moe_unemp, moe_total) {
-      if (is.na(est_total) || est_total <= 0) {
-        return(NA_real_)
-      }
-      tidycensus::moe_prop(est_unemp, est_total, moe_unemp, moe_total)
-    },
-    unemployed,
-    labor_force_total,
-    unemployed_moe,
-    labor_force_total_moe
-  ))]
-
-  return(dt_unemp_prepped[])
+# Summarize employment data by race and sex
+summarize_employment_by_race_sex <- function(pumsdata){
+  result_emprate <- psrc_pums_count(pumsdata, 
+                                    group_vars = c("PRACE_x_SEX", "employment_status"), 
+                                    incl_na=FALSE) %>%
+   tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+  return(result_emprate)
 }
 
 # Plot labor force or unemployment rates by sex within race categories.
 #
 # @param dt A data.frame or data.table with at least race, sex, and rate columns.
-# @param rate_var Unquoted or quoted rate column name (e.g., participation_rate).
+# @param rate_var Unquoted or quoted rate column name (e.g., share).
 # @param whiskers Logical; if TRUE, adds MOE whiskers using <rate_var>_moe.
 #
 # @return A ggplot object.
@@ -137,8 +70,9 @@ plot_lf_rate <- function(dt, rate_var, whiskers = FALSE) {
   if (!is.data.frame(dt)) {
     stop("dt must be a data.frame or data.table.", call. = FALSE)
   }
+  dt <- as.data.table(dt)
 
-  required_cols <- c("race", "sex", rate_col)
+  required_cols <- c("PRACE", "SEX", rate_col)
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
     stop(
@@ -155,16 +89,16 @@ plot_lf_rate <- function(dt, rate_var, whiskers = FALSE) {
     )
   }
 
-  dt_plot <- as.data.table(copy(dt))[!is.na(race) & !is.na(sex)]
+  dt_plot <- copy(dt)[!is.na(PRACE) & !is.na(SEX)]
   dt_plot <- dt_plot[!is.na(get(rate_col))]
 
-  race_levels <- unique(as.character(dt_plot$race))
+  race_levels <- unique(as.character(dt_plot$PRACE))
   sex_levels <- c("Female","Male")
-  sex_levels <- c(sex_levels[sex_levels %chin% as.character(dt_plot$sex)],
-                  setdiff(unique(as.character(dt_plot$sex)), sex_levels))
+  sex_levels <- c(sex_levels[sex_levels %chin% as.character(dt_plot$SEX)],
+                  setdiff(unique(as.character(dt_plot$SEX)), sex_levels))
 
-  dt_plot[, race_f := factor(as.character(race), levels = race_levels)]
-  dt_plot[, sex_f := factor(as.character(sex), levels = sex_levels)]
+  dt_plot[, race_f := factor(as.character(PRACE), levels = race_levels)]
+  dt_plot[, sex_f := factor(as.character(SEX), levels = sex_levels)]
 
   race_palette <- stats::setNames(
     grDevices::hcl.colors(length(race_levels), palette = "Dynamic"),
@@ -282,8 +216,8 @@ plot_lf_rate <- function(dt, rate_var, whiskers = FALSE) {
 }
 
 ## Example -------------------------
-dt_lf_2024 <- get_regional_acs_labor_force_data(2024)
-dt_lf_prepped <- prep_labor_force_data(dt_lf_2024)
-dt_unemp_prepped <- prep_unemployment_data(dt_lf_2024)
-unemp_p <- plot_lf_rate(dt_unemp_prepped, unemployment_rate, whiskers = TRUE)
-lf_p <- plot_lf_rate(dt_lf_prepped, participation_rate, whiskers = TRUE) 
+# pumslf2024 <- get_pums_labor_force_data(2024)
+# lfp_rates <- summarize_labor_force_by_race_sex(pumslf2024)
+# unemp_rates <- summarize_employment_by_race_sex(pumslf2024)
+# lf_p <- plot_lf_rate(filter(lfp_rates, labor_force_status == "In labor force"), "share", whiskers = TRUE)
+# unemp_p <- plot_lf_rate(filter(unemp_rates, employment_status == "Unemployed"), "share", whiskers = TRUE)
