@@ -47,11 +47,28 @@ kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-
 ## Quality of Life
 
 ```{r}
-# Homeonwnership by race
+# Homeonwnership by race/ethnicity
 source("https://raw.githubusercontent.com/psrc/housing-metrics/refs/heads/main/2026_update/metric05_tenure_by_race_inc.R")
 
-# Renter cost burden by race
+# Renter cost burden by race/ethnicity
 source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_update/metric19_cost_burden_by_race_inc.R")
+
+# Internet Access by race/ethnicity
+source(internet_access.R)
+dt_net <- get_regional_acs_internet_data(2024)
+dt_net_prepped <- prep_internet_data(dt_net)
+
+net_access_p <- psrcplot::static_bar_chart(
+                    t = dt_net_prepped[internet_status!="dial-up"],
+                    y = "race",
+                    x = "internet_status_share",
+                    fill = "internet_status",
+                    title = "Internet Access by Race/Ethnicity",
+                    alt = "Chart of Internet Access by Race/Ethnicity",
+                    source = paste("Source: ACS 5-Year Estimates, tables B28009A-I",
+                                 "for King, Kitsap, Pierce and Snohomish counties.",
+                                 sep = "\n"),
+                    color="pgnobgy_5", pos = "stack")
 ```
 
 ## Business Climate

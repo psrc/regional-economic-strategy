@@ -9,7 +9,7 @@ get_regional_acs_labor_force_data <- function(year, acs.type = "acs5"){
   dt_lf <- suppressMessages(
     get_acs_recs("county", 
                  table.names=paste0("C23002", toupper(letters[1:9])),
-                 year = year, acs.type = acs.type)) %>% setDT() %>%
+                 years = year, acs.type = acs.type)) %>% setDT() %>%
     .[GEOID == "REGION" & grepl("16 to 64 years", label)==TRUE] %>%
     .[, `:=`(race  = sub(" Alone", "", 
                          sub(".*\\((.*?)\\).*", "\\1", concept)),
