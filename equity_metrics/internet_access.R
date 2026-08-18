@@ -2,32 +2,27 @@ library(psrccensus)
 library(magrittr)
 library(dplyr)
 
-# for faster/more reliable access; use pums_rds = NULL when lacking access to J drive
-jrds = "J:/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
-
-get_regional_hrace_internet_access <- function(dyear, pums_rds = jrds){
-  if(dyear < 2017){
-    stop("Internet access data is not available for years prior to 2017.")
-  }
-  hvars <- c("HRACE", "ACCESSINET")
-  # Variable changed names w/ 2020 data; swap name temporarily for older data
-  if(dyear %in% 2017:2019){hvars <- replace(hvars, hvars=="ACCESSINET","ACCESS")}
-  pumsdata <- get_psrc_pums(span=5, dyear, "h", hvars, dir=pums_rds)
-  if("ACCESS" %in% colnames(pumsdata)){pumsdata %<>% rename("ACCESSINET"="ACCESS")}
-  pumsdata %<>% mutate(
+# required variables: HRACE, ACCESSINET
+prep_internet_data <- function(raw_pumsdata_h){
+  prepped_pumsdata_h <- raw_pumsdata_h %>% mutate(
     internet = factor(case_when(grepl("^Yes", ACCESSINET) ~ "With internet access",
                                 grepl("^No", ACCESSINET) ~ "Without internet access")))
-  return(pumsdata)
+  return(prepped_pumsdata_h)
 }
 
-summarize_regional_hrace_internet_access <- function(pumsdata){
-  result_df <- psrc_pums_count(pumsdata, group_vars = c("HRACE", "internet"))
+summarize_internet_by_race <- function(prepped_pumsdata_h){
+  result_df <- psrc_pums_count(prepped_pumsdata_h, group_vars = c("HRACE", "internet"))
+  return(result_df)
+}
+
+summarize_internet <- function(prepped_pumsdata_h){
+  result_df <- psrc_pums_count(prepped_pumsdata_h, group_vars = "internet")
   return(result_df)
 }
 
 # Example:
-# pumsdata <- get_regional_hrace_internet_access(2024)
-# result_df <- summarize_regional_hrace_internet_access(pumsdata)
+# pumsdata <- prep_internet_data(get_pums_resequity_h(2024))
+# result_df <- summarize_internet_by_race(pumsdata)
 # net_access_p <- psrcplot::static_bar_chart(
 #                     t = filter(result_df, internet != "Total"), 
 #                     y = "HRACE", 
