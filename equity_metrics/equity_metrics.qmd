@@ -3,39 +3,59 @@ title: "equity_metrics"
 format: html
 editor: visual
 ---
+```{r}
+library(magrittr)
+lapply(c("get_pums_res_equity.R",
+         "income_earnings.R",
+         "labor_force_unemployment.R",
+         "internet_access.R",
+         "health_insurance.R",
+         "plot_rates.R"), source)
+```
+```{r}
+dyear <- 2024
 
+pumsdata_h <- get_pums_resequity_h(dyear = dyear)
+pumsdata_h <- pumsdata_h %>%
+              prep_internet_data()
+
+pumsdata_p <- get_pums_resequity_p(dyear = dyear)
+pumsdata_p <- pumsdata_p %>%
+              prep_wage_data() %>%
+              prep_labor_force_data() %>%
+              prep_health_insurance_data()
+
+```
 ## Background
-
-x \<- get_acs_recs("county", table.names=paste("C23002",A:I), years = 2024, acs.type = "acs5") %\>% dplyr::filter(name == "Region")
 
 ```{r}
 # Population by race/ethnicity
-source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/01-pop-by-race-census_categories.R")
+#source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/01-pop-by-race-census_categories.R")
 
 # Median household income by race/ethnicity
-source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/04-median-hh-income-race.R")
+#source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/04-median-hh-income-race.R")
 
 # Poverty rates by race/ethnicity
-source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/02-pop-low-income.R")
+#source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/02-pop-low-income.R")
 
 # Unemployment / labor force participation (16 and over) by gender and race/ethnicity
-source("labor_force_unemployment.R")
-pums_lf_2024 <- get_pums_labor_force_data(2024)
-
-lfp_rates <- summarize_labor_force_by_race_sex(pums_lf_2024)
-lf_p <- plot_lf_rate(
-    filter(lfp_rates, labor_force_status == "In labor force"),
-    "share",
-    whiskers = TRUE
+rs_lfp <- summarize_lf_by_race_x_sex(pumsdata_p)
+p_lfp <- plot_rates(
+    filter(rs_lfp, labor_force_status == "In labor force"),
+    group_vars = c("PRACE", "SEX"),
+    whiskers = TRUE # error bars 
 )
 
-unemp_rates <- summarize_employment_by_race_sex(pums_lf_2024)
-unemp_p <- plot_lf_rate(
-    filter(unemp_rates, employment_status == "Unemployed"),
-    "share",
-    whiskers = TRUE
+plot(p_lfp)
+
+rs_unemp <- summarize_empstatus_by_race_x_sex(pumsdata_p)
+p_unemp <- plot_rates(
+    filter(rs_unemp, employment_status == "Unemployed"),
+    group_vars = c("PRACE", "SEX"),
+    whiskers = TRUE # error bars 
 )
 
+plot(p_unemp)
 ```
 
 ## Economic Opportunity
@@ -43,12 +63,12 @@ unemp_p <- plot_lf_rate(
 ```{r}
 
 # Educational Attainment
-source("../Education/education.R")
+#source("../Education/education.R")
 
 # Kindergarten readiness - direct sourcing
 # -- uses RSocrata `remotes::install_github("Chicago/RSocrata")` 
-source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
-kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-26 school year
+#source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
+#kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-26 school year
 
 ```
 
@@ -56,18 +76,27 @@ kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-
 
 ```{r}
 # Homeonwnership by race/ethnicity
-source("https://raw.githubusercontent.com/psrc/housing-metrics/refs/heads/main/2026_update/metric05_tenure_by_race_inc.R")
+#source("https://raw.githubusercontent.com/psrc/housing-metrics/refs/heads/main/2026_update/metric05_tenure_by_race_inc.R")
 
 # Renter cost burden by race/ethnicity
-source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_update/metric19_cost_burden_by_race_inc.R")
+#source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_update/metric19_cost_burden_by_race_inc.R")
+
+# Health insurance coverage by race/ethnicity
+rs_health_insurance <- summarize_health_insurance_by_race(pumsdata_p)
+p_health_insurance <- plot_rates(
+    filter(rs_health_insurance, health_insurance != "Total"),
+    group_vars = c("PRACE"),
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_health_insurance)
 
 # Internet Access by race/ethnicity
-source(internet_access.R)
-pumsdata <- get_regional_hrace_internet_access(2024)
-result_df <- summarize_regional_hrace_internet_access(pumsdata)
+rs_internet <- summarize_internet_by_race(pumsdata_h)
 
 net_access_p <- psrcplot::static_bar_chart(
-                    t = filter(result_df, internet != "Total"),
+                    t = filter(rs_internet, internet != "Total"),
                     y = "HRACE",
                     x = "share",
                     fill = "internet",
@@ -77,6 +106,7 @@ net_access_p <- psrcplot::static_bar_chart(
                                  "for King, Kitsap, Pierce and Snohomish counties.",
                                  sep = "\n"),
                     color="pgnobgy_5", pos = "stack")
+plot(net_access_p)
 ```
 
 ## Business Climate
