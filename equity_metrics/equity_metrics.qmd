@@ -6,20 +6,16 @@ editor: visual
 ```{r}
 library(magrittr)
 lapply(c("get_pums_res_equity.R",
-         "income_earnings.R",
-         "labor_force_unemployment.R",
-         "internet_access.R",
-         "health_insurance.R",
          "plot_rates.R"), source)
 ```
 ```{r}
 dyear <- 2024
 
-pumsdata_h <- get_pums_resequity_h(dyear = dyear)
+pumsdata_h <- get_pums_res_equity_h(dyear = dyear)
 pumsdata_h <- pumsdata_h %>%
               prep_internet_data()
 
-pumsdata_p <- get_pums_resequity_p(dyear = dyear)
+pumsdata_p <- get_pums_res_equity_p(dyear = dyear)
 pumsdata_p <- pumsdata_p %>%
               prep_wage_data() %>%
               prep_labor_force_data() %>%
@@ -32,14 +28,22 @@ pumsdata_p <- pumsdata_p %>%
 # Population by race/ethnicity
 #source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/01-pop-by-race-census_categories.R")
 
+rs_pop <- psrc_pums_count(pumsdata_p, group_vars = c("PRACE"))
+
 # Median household income by race/ethnicity
 #source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/04-median-hh-income-race.R")
+
+rs_hhincome <- psrc_pums_median(pumsdata_h, stat_var = "HINCP", group_vars = c("HRACE"))
 
 # Poverty rates by race/ethnicity
 #source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/02-pop-low-income.R")
 
 # Unemployment / labor force participation (16 and over) by gender and race/ethnicity
-rs_lfp <- summarize_lf_by_race_x_sex(pumsdata_p)
+rs_lfp <- psrc_pums_count(pumsdata_p,
+    group_vars = c("PRACE_x_SEX", "labor_force_status"), 
+    incl_na=FALSE) %>%
+   tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+
 p_lfp <- plot_rates(
     filter(rs_lfp, labor_force_status == "In labor force"),
     group_vars = c("PRACE", "SEX"),
@@ -48,7 +52,11 @@ p_lfp <- plot_rates(
 
 plot(p_lfp)
 
-rs_unemp <- summarize_empstatus_by_race_x_sex(pumsdata_p)
+rs_unemp <- psrc_pums_count(prepped_pumsdata_p,
+    group_vars = c("PRACE_x_SEX", "employment_status"), 
+    incl_na=FALSE) %>%
+   tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+
 p_unemp <- plot_rates(
     filter(rs_unemp, employment_status == "Unemployed"),
     group_vars = c("PRACE", "SEX"),
@@ -82,7 +90,10 @@ plot(p_unemp)
 #source("https://raw.githubusercontent.com/psrc/housing-metrics/blob/main/2026_update/metric19_cost_burden_by_race_inc.R")
 
 # Health insurance coverage by race/ethnicity
-rs_health_insurance <- summarize_health_insurance_by_race(pumsdata_p)
+rs_health_insurance <- psrc_pums_count(pumsdata_p, 
+    group_vars = c("PRACE", "health_insurance"), 
+    incl_na=FALSE)
+
 p_health_insurance <- plot_rates(
     filter(rs_health_insurance, health_insurance != "Total"),
     group_vars = c("PRACE"),
@@ -93,19 +104,19 @@ p_health_insurance <- plot_rates(
 plot(p_health_insurance)
 
 # Internet Access by race/ethnicity
-rs_internet <- summarize_internet_by_race(pumsdata_h)
+rs_internet <- psrc_pums_count(pumsdata_h, group_vars = c("HRACE", "internet"))
 
 net_access_p <- psrcplot::static_bar_chart(
-                    t = filter(rs_internet, internet != "Total"),
-                    y = "HRACE",
-                    x = "share",
-                    fill = "internet",
-                    title = "Internet Access by Race/Ethnicity",
-                    alt = "Chart of Internet Access by Race/Ethnicity",
-                    source = paste("Source: ACS PUMS 2020-2024 5-year microdata",
-                                 "for King, Kitsap, Pierce and Snohomish counties.",
-                                 sep = "\n"),
-                    color="pgnobgy_5", pos = "stack")
+    t = filter(rs_internet, internet != "Total"),
+    y = "HRACE",
+    x = "share",
+    fill = "internet",
+    title = "Internet Access by Race/Ethnicity",
+    alt = "Chart of Internet Access by Race/Ethnicity",
+    source = paste("Source: ACS PUMS 2020-2024 5-year microdata",
+                    "for King, Kitsap, Pierce and Snohomish counties.",
+                    sep = "\n"),
+    color="pgnobgy_5", pos = "stack")
 plot(net_access_p)
 ```
 
