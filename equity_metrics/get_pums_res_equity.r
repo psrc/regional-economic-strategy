@@ -6,22 +6,24 @@ library(psrccensus)
 # pums_rds on local or shared drive for faster/more reliable access; otherwise use pums_rds = NULL
 jrds = "J:/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
 
-pvars <- c("SEX",
-           "AGEP", 
-           "PRACE",               # PSRC non-overlapping race/ethnicity variable
+pvars <- c("AGEP",
            "ESR",                 # Employment status recode
+           "ED_ATTAIN",           # Educational attainment
            "HICOV",               # Health insurance coverage
-           "SOCP3",               # Occupation code
            "NAICSP",              # Industry code
-           "SCHL",                # Educational attainment
-           "WAGP",                # Wage or salary income past 12 months
-           "POVPIP"               # Income as a percentage of the poverty level
+           "POVPIP",              # Income as a percentage of the poverty level
+           "PRACE",               # PSRC non-overlapping race/ethnicity variable
+           "SEX",
+           "SOCP3",               # Occupation code
+           "WAGP"                 # Wage or salary income past 12 months      
 )
 
-hvars <- c("HRACE",               # PSRC non-overlapping race/ethnicity variable
-           "ACCESSINET",          # Internet access
+hvars <- c("ACCESSINET",          # Internet access
+           "GRPIP",               # Household income as a percentage of the poverty level
+           "GRNTP",               # Gross rent as a percentage of household income
            "HINCP",               # Household income past 12 months
-           "GRPIP"                # Household income as a percentage of the poverty level
+           "HRACE",               # PSRC non-overlapping race/ethnicity variable
+           "OWN_RENT"             # Tenure (own/rent)
 )
 
 get_pums_res_equity_p <- function(dyear, span = 5, pums_rds = jrds){
@@ -40,7 +42,7 @@ get_pums_res_equity_h <- function(dyear, span = 5, pums_rds = jrds){
     return(pumsdata)
 }
 
-# Add custom variables ----------------
+# Add household variables ----------------
 
 # Add internet access variable 
 # - required variables: ACCESSINET
@@ -50,6 +52,22 @@ prep_internet_data <- function(raw_pumsdata_h){
                                 grepl("^No", ACCESSINET) ~ "Without internet access")))
   return(prepped_pumsdata_h)
 }
+
+# Add rent burden variable 
+# - required variables: GRPIP, GRNTP, OWN_RENT
+prep_renter_burden_data <- function(raw_pumsdata_h){
+  prepped_pumsdata_h <- raw_pumsdata_h %>% mutate(
+    rent_burden=factor(case_when(
+      GRPIP<30|(is.na(GRNTP) & OWN_RENT=="Rented") ~ "Less than 30 percent",
+      dplyr::between(GRPIP,30,50) ~ "Between 30 and 50 percent",
+      GRPIP>50|is.na(HINCP)       ~ "Greater than 50 percent"),
+      levels=c("Greater than 50 percent",
+               "Between 30 and 50 percent",
+               "Less than 30 percent")))
+  return(prepped_pumsdata_h)
+}
+
+# Add personal variables --------------
 
 # Add personal health insurance variable 
 # - required input variables: HICOV, ESR
@@ -62,7 +80,7 @@ prep_health_insurance_data <- function(raw_pumsdata_p){
   return(prepped_pumsdata_p)
 }
 
-# Add labor force participation& employment status variables; 
+# Add labor force participation & employment status variables; 
 # - limit to working age (16-64)
 # - required variables: AGEP, ESR
 prep_labor_force_data <- function(raw_pumsdata_p){
@@ -90,5 +108,20 @@ prep_wage_data <- function(raw_pumsdata_p){
     wages = if_else(
         !grepl("^(Civilian|Armed)", ESR) | AGEP < 16, NA_real_,
          WAGP))
+  return(prepped_pumsdata_p)
+}
+
+# Add poverty & low income status variables
+# - limit to age 16+
+# - required variables: POVPIP, AGEP
+prep_poverty_data <- function(raw_pumsdata_p){
+  prepped_pumsdata_p <- raw_pumsdata_p %>% mutate(
+     low_income = case_when(is.na(POVPIP) | AGEP < 16 ~ NA_character_,
+                            POVPIP < 200 ~ "Yes",
+                            TRUE ~ "No"),
+     poverty = case_when(is.na(POVPIP) | AGEP < 16 ~ NA_character_,
+                         POVPIP < 100 ~ "Yes",
+                         TRUE ~ "No")
+  )
   return(prepped_pumsdata_p)
 }
