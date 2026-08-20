@@ -150,6 +150,12 @@ pums_edu2groups <- pums_data_edu2groups %>%
 
 
 # Kindergarten Readiness by Race/Ethnicity 2023-24----------------------------
+
+# Option for programmatic retrieval of data
+# -- uses RSocrata `remotes::install_github("Chicago/RSocrata")` 
+# source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
+# ospi_kready <- get_k_readiness("https://data.wa.gov/resource/vumg-9sgs.json") # 2023-24 school year
+
 # downloaded from: https://data.wa.gov/education/Report-Card-WaKids-2023-24-School-Year/vumg-9sgs/about_data
 ospi_raw <- read.csv(file.path(folder_loc, "raw_data",
                                "Report_Card_WaKids_2023-24_School_Year_20250731.csv"))
