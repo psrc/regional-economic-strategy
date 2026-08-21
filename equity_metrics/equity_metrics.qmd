@@ -6,6 +6,7 @@ editor: visual
 ```{r}
 library(magrittr)
 library(dplyr)
+library(data.table)
 
 lapply(c("equity_metrics/get_pums_res_equity.R",
          "equity_metrics/plot_rates.R"), source)
@@ -181,7 +182,7 @@ plot(p_no_health_insurance)
 # Internet Access by race/ethnicity
 rs_internet <- psrc_pums_count(pumsdata_h, group_vars = c("HRACE", "internet"))
 
-net_access_p <- psrcplot::static_bar_chart(
+p_internet <- psrcplot::static_bar_chart(
     t = filter(rs_internet, internet != "Total"),
     y = "HRACE",
     x = "share",
@@ -193,7 +194,7 @@ net_access_p <- psrcplot::static_bar_chart(
                     sep = "\n"),
     color="pgnobgy_5", pos = "stack")
 
-plot(net_access_p)
+plot(p_internet)
 ```
 
 ## Business Climate

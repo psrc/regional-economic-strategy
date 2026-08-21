@@ -1,0 +1,182 @@
+---
+title: "annual trend data for comparisons"
+format: html
+editor: visual
+---
+```{r}
+library(magrittr)
+library(dplyr)
+library(data.table)
+
+lapply(c("equity_metrics/get_pums_res_equity.R",
+         "equity_metrics/plot_rates.R"), source)
+
+```
+```{r}
+dyears <- c(2017:2019, 2021:2024)
+
+pumslist_h <- list()
+pumslist_h <- lapply(dyears, get_pums_res_equity_h, span = 1)
+pumslist_h <- lapply(pumslist_h, prep_internet_data) %>%
+              lapply(prep_renter_burden_data)
+
+pumslist_p <- list()
+pumslist_p <- lapply(dyears, get_pums_res_equity_p, span = 1)
+pumslist_p <- lapply(pumslist_p, prep_wage_data) %>%
+              lapply(prep_labor_force_data) %>%
+              lapply(prep_health_insurance_data) %>%
+              lapply(prep_poverty_data)
+
+```
+
+## Background
+
+```{r}
+# Population
+
+rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRUE)
+
+# Median household income
+
+rs_hhincome <- lapply(pumslist_h, psrc_pums_median, stat_var = "HINCP") %>% 
+    data.table::rbindlist(fill=TRUE)
+
+# Poverty rates
+
+rs_poverty <- lapply(pumslist_p, psrc_pums_count, group_vars = "poverty", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_poverty <- plot_rates(
+    filter(rs_poverty, poverty == "Yes"),
+    group_vars = "DATA_YEAR",
+    whiskers = TRUE # error bars 
+)
+
+plot(p_poverty)
+
+# Low income rates
+
+rs_lowinc <- lapply(pumslist_p, psrc_pums_count, group_vars = "low_income", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_lowinc <- plot_rates(
+    filter(rs_lowinc, low_income == "Yes"),
+    group_vars = "DATA_YEAR",
+    whiskers = TRUE # error bars 
+)
+
+plot(p_lowinc)
+
+# Unemployment / labor force participation (16 and over)
+rs_lfp <- lapply(pumslist_p, psrc_pums_count, group_vars = "labor_force_status", incl_na=FALSE) %>%
+   data.table::rbindlist(fill=TRUE)
+
+p_lfp <- plot_rates(
+    filter(rs_lfp, labor_force_status == "In labor force"),
+    group_vars = "DATA_YEAR",
+    whiskers = TRUE # error bars 
+)
+
+plot(p_lfp)
+
+rs_unemp <- lapply(pumslist_p, psrc_pums_count, group_vars = "employment_status", incl_na=FALSE) %>%
+   data.table::rbindlist(fill=TRUE)
+
+p_unemp <- plot_rates(
+    filter(rs_unemp, employment_status == "Unemployed"),
+    group_vars = "DATA_YEAR",
+    whiskers = TRUE # error bars 
+)
+
+plot(p_unemp)
+```
+
+## Economic Opportunity
+
+```{r}
+
+# Educational Attainment
+rs_ed_attain <- lapply(pumslist_p, psrc_pums_count, group_vars = "ED_ATTAIN", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_ed_attain <- plot_rates(
+    filter(rs_ed_attain, ED_ATTAIN != "Total"),
+    group_vars = "DATA_YEAR",
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_ed_attain)
+
+```
+
+## Quality of Life
+
+```{r}
+# Homeownership by race/ethnicity
+rs_own_rent <- lapply(pumslist_h, psrc_pums_count, group_vars = "OWN_RENT", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_own_rent <- plot_rates(
+    filter(rs_own_rent, OWN_RENT == "Own"),
+    group_vars = "DATA_YEAR",
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_own_rent)
+
+# Renter cost burden by race/ethnicity
+
+rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_rent_burden <- plot_rates(
+    filter(rs_rent_burden, 
+           rent_burden %in% c("Greater than 50 percent",
+                              "Between 30 and 50 percent")),
+    group_vars = "DATA_YEAR",
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_rent_burden)
+
+# Health insurance coverage by race/ethnicity
+rs_health_insurance <- lapply(pumslist_p, psrc_pums_count, group_vars = "health_insurance", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_no_health_insurance <- plot_rates(
+    filter(rs_health_insurance, health_insurance == "No health insurance"),
+    group_vars = "DATA_YEAR",
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_no_health_insurance)
+
+# Internet Access by race/ethnicity
+rs_internet <- lapply(pumslist_h, psrc_pums_count, group_vars = "internet", incl_na=FALSE) %>% 
+    data.table::rbindlist(fill=TRUE)
+
+p_internet <- plot_rates(
+    filter(rs_internet, DATA_YEAR > 2016 & internet == "No internet access"),
+    group_vars = "DATA_YEAR",
+    rate_var = "share",
+    whiskers = TRUE # error bars
+)
+
+plot(p_internet)
+```
+
+## Business Climate
+
+```{r}
+
+```
+
+## Global Competitiveness
+
+```{r}
+
+```
