@@ -3,6 +3,7 @@ title: "equity_metrics"
 format: html
 editor: visual
 ---
+
 ```{r}
 library(magrittr)
 library(dplyr)
@@ -12,6 +13,7 @@ lapply(c("equity_metrics/get_pums_res_equity.R",
          "equity_metrics/plot_rates.R"), source)
 
 ```
+
 ```{r}
 dyear <- 2024
 
@@ -28,6 +30,7 @@ pumsdata_p <- pumsdata_p %>%
               prep_poverty_data()
 
 ```
+
 ## Background
 
 ```{r}

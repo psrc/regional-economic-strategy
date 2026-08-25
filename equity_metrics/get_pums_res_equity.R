@@ -5,6 +5,8 @@ library(psrccensus)
 
 # pums_rds on local or shared drive for faster/more reliable access; otherwise use pums_rds = NULL
 jrds = "J:/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
+#jrds <- "~/J/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
+#jrds <- NULL
 
 pvars <- c("AGEP",
            "ESR",                 # Employment status recode

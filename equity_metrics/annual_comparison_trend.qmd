@@ -3,15 +3,17 @@ title: "annual trend data for comparisons"
 format: html
 editor: visual
 ---
+
 ```{r}
 library(magrittr)
 library(dplyr)
 library(data.table)
 
-lapply(c("equity_metrics/get_pums_res_equity.R",
-         "equity_metrics/plot_rates.R"), source)
+lapply(c("get_pums_res_equity.R",
+         "plot_rates.R"), source)
 
 ```
+
 ```{r}
 dyears <- c(2017:2019, 2021:2024)
 
