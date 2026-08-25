@@ -29,7 +29,6 @@ pumslist_p <- lapply(pumslist_p, prep_wage_data) %>%
               lapply(prep_poverty_data)
 ```
 
-
 ## Population Indicators
 
 ### Population
@@ -42,7 +41,6 @@ rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRU
 p_pop <- plot_counts(rs_pop, "DATA_YEAR", "count", moe = "count_moe")
 plot(p_pop)
 ```
-
 
 ### Median household income
 
@@ -75,7 +73,6 @@ p_poverty <- plot_rates(
 plot(p_poverty)
 ```
 
-
 ### Low income rates
 
 ```{r}
@@ -94,7 +91,9 @@ plot(p_lowinc)
 ```
 
 ## Employment
+
 ### Labor force participation (16 and over)
+
 ```{r}
 rs_lfp <- lapply(pumslist_p, psrc_pums_count, group_vars = "labor_force_status", incl_na=FALSE) %>%
    data.table::rbindlist(fill=TRUE)
@@ -111,6 +110,7 @@ plot(p_lfp)
 ```
 
 ### Unemployment
+
 ```{r}
 rs_unemp <- lapply(pumslist_p, psrc_pums_count, group_vars = "employment_status", incl_na=FALSE) %>%
    data.table::rbindlist(fill=TRUE)
@@ -138,7 +138,7 @@ rs_ed_attain <- lapply(pumslist_p, psrc_pums_count, group_vars = "ED_ATTAIN", in
 ```{r}
 p_ed_attain <- plot_rates(
     filter(rs_ed_attain, ED_ATTAIN != "Total"),
-    group_vars = "DATA_YEAR",
+    group_vars = c("DATA_YEAR", "ED_ATTAIN"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
@@ -168,6 +168,7 @@ plot(p_own_rent)
 ```
 
 ### Renter cost burden
+
 ```{r}
 rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
@@ -176,7 +177,7 @@ p_rent_burden <- plot_rates(
     filter(rs_rent_burden, 
            rent_burden %in% c("Greater than 50 percent",
                               "Between 30 and 50 percent")),
-    group_vars = "DATA_YEAR",
+    group_vars = c("DATA_YEAR", "rent_burden"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
@@ -184,7 +185,8 @@ p_rent_burden <- plot_rates(
 plot(p_rent_burden)
 ```
 
-### Health insurance coverage 
+### Lacking Health Insurance
+
 ```{r}
 rs_health_insurance <- lapply(pumslist_p, psrc_pums_count, group_vars = "health_insurance", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
@@ -201,8 +203,8 @@ p_no_health_insurance <- plot_rates(
 plot(p_no_health_insurance)
 ```
 
+### Lacking Internet Access
 
-### Internet Access
 ```{r}
 rs_internet <- lapply(pumslist_h, psrc_pums_count, group_vars = "internet", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
