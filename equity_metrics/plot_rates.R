@@ -9,9 +9,13 @@ library(ggplot2)
 #   shaded as tones of the outer group's color.
 # @param rate_var Unquoted or quoted rate column name (e.g., share).
 # @param whiskers Logical; if TRUE, adds MOE whiskers using <rate_var>_moe.
+# @param xlabi List with optional parameters to control how the x-labels
+#   of the inner grouping are drawn. Currently, items 'size', 'angle', 'hjust', 
+#   'vjust' are used.
 #
 # @return A ggplot object.
-plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share", whiskers = FALSE) {
+plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share", 
+                       whiskers = FALSE, xlabi = NULL) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required for plot_rate_by_race_and_sex().", call. = FALSE)
   }
@@ -96,7 +100,8 @@ plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share", w
   }
 
   n_sex <- length(sex_levels)
-  offsets <- seq(-(n_sex - 1) / 2, (n_sex - 1) / 2, length.out = n_sex) * 0.34
+  #offsets <- seq(-(n_sex - 1) / 2, (n_sex - 1) / 2, length.out = n_sex) * 0.34
+  offsets <- seq(-(n_sex - 1) / 2, (n_sex - 1) / 2, length.out = n_sex) * min(1/n_sex, 0.34)
   dt_plot[, x_pos := as.numeric(race_f) + offsets[as.integer(sex_f)]]
 
   race_centers <- dt_plot[, .(x_center = mean(x_pos)), by = race_f]
@@ -131,7 +136,7 @@ plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share", w
   label_boundary_y <- -max(0.004, 0.08 * (y_max + 1e-9))
   sex_label_y <- label_boundary_y + max(0.002, 0.002 * (y_max + 1e-9))
   race_label_y <- label_boundary_y
-  bar_width <- if (n_sex <= 2) 0.26 else 0.22
+  bar_width <- min(if (n_sex <= 2) 0.26 else 0.22, 1/n_sex)
 
   p <- ggplot2::ggplot(
     dt_plot,
@@ -159,9 +164,11 @@ plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share", w
         data = sex_labels,
         ggplot2::aes(x = x_pos, y = sex_label_y, label = sex_label),
         inherit.aes = FALSE,
-        vjust = 0,
-        size = 3.2,
-        fontface = "bold"
+        vjust = if(!is.null(xlabi$vjust)) xlabi$vjust else 0,
+        size = if(!is.null(xlabi$size)) xlabi$size else 0.32,
+        fontface = "bold", 
+        angle = if(!is.null(xlabi$angle)) xlabi$angle else 0,
+        hjust = if(!is.null(xlabi$hjust)) xlabi$hjust else 0.5
       )
     }) +
     ggplot2::geom_text(

@@ -140,7 +140,8 @@ p_ed_attain <- plot_rates(
     filter(rs_ed_attain, ED_ATTAIN != "Total"),
     group_vars = c("DATA_YEAR", "ED_ATTAIN"),
     rate_var = "share",
-    whiskers = TRUE # error bars
+    whiskers = TRUE, # error bars
+    xlabi = list(size = 2, angle = 90, hjust = 0)
 )
 
 plot(p_ed_attain)
@@ -179,7 +180,8 @@ p_rent_burden <- plot_rates(
                               "Between 30 and 50 percent")),
     group_vars = c("DATA_YEAR", "rent_burden"),
     rate_var = "share",
-    whiskers = TRUE # error bars
+    whiskers = TRUE, # error bars
+    xlabi = list(size = 2, angle = 90, hjust = 0)
 )
 
 plot(p_rent_burden)
