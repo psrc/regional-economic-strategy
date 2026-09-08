@@ -14,7 +14,7 @@ library(data.table)
 lapply(c("get_pums_res_equity.R",
          "plot_rates.R", "plot_counts.R"), source)
 
-dyears <- c(2017:2019, 2021:2024)
+dyears <- c(2010:2019, 2021:2024)
 
 pumslist_h <- list()
 pumslist_h <- lapply(dyears, get_pums_res_equity_h, span = 1)
