@@ -73,20 +73,14 @@ rs_poverty <- lapply(pumslist_p, psrc_pums_count, group_vars = "poverty", incl_n
     data.table::rbindlist(fill=TRUE)
 ```
 
-```{r}
-p_poverty <- plot_rates(
-    filter(rs_poverty, poverty == "Yes"),
-    group_vars = "DATA_YEAR",
-    whiskers = TRUE # error bars 
-)
 
-plot(p_poverty)
-```
 ```{r}
+#p_poverty <- plot_rates(filter(rs_poverty, poverty == "Yes"),
+#    group_vars = "DATA_YEAR", whiskers = TRUE) # error bars 
 p_poverty <- plot_line_rates(
     rs_poverty[poverty == "Yes"],
     xcol = "DATA_YEAR",
-    legend = "poverty rates"
+    legend = "region's poverty rates"
 )
 
 plot(p_poverty)
@@ -101,10 +95,16 @@ rs_lowinc <- lapply(pumslist_p, psrc_pums_count, group_vars = "low_income", incl
 ```
 
 ```{r}
-p_lowinc <- plot_rates(
-    filter(rs_lowinc, low_income == "Yes"),
-    group_vars = "DATA_YEAR",
-    whiskers = TRUE # error bars 
+#p_lowinc <- plot_rates(
+#    filter(rs_lowinc, low_income == "Yes"),
+#    group_vars = "DATA_YEAR",
+#    whiskers = TRUE # error bars 
+#)
+
+p_lowinc <- plot_line_rates(
+    rs_lowinc[low_income == "Yes"],
+    xcol = "DATA_YEAR",
+    legend = "region's low income rates"
 )
 
 plot(p_lowinc)
@@ -120,10 +120,16 @@ rs_lfp <- lapply(pumslist_p, psrc_pums_count, group_vars = "labor_force_status",
 ```
 
 ```{r}
-p_lfp <- plot_rates(
-    filter(rs_lfp, labor_force_status == "In labor force"),
-    group_vars = "DATA_YEAR",
-    whiskers = TRUE # error bars 
+#p_lfp <- plot_rates(
+#    filter(rs_lfp, labor_force_status == "In labor force"),
+#    group_vars = "DATA_YEAR",
+#    whiskers = TRUE # error bars 
+#)
+
+p_lfp <- plot_line_rates(
+    rs_lfp[labor_force_status == "In labor force"],
+    xcol = "DATA_YEAR",
+    legend = "region's in-labor force"
 )
 
 plot(p_lfp)
@@ -137,10 +143,16 @@ rs_unemp <- lapply(pumslist_p, psrc_pums_count, group_vars = "employment_status"
 ```
 
 ```{r}
-p_unemp <- plot_rates(
-    filter(rs_unemp, employment_status == "Unemployed"),
-    group_vars = "DATA_YEAR",
-    whiskers = TRUE # error bars 
+#p_unemp <- plot_rates(
+#    filter(rs_unemp, employment_status == "Unemployed"),
+#    group_vars = "DATA_YEAR",
+#    whiskers = TRUE # error bars 
+#)
+
+p_unemp <- plot_line_rates(
+    rs_unemp[employment_status == "Unemployed"],
+    xcol = "DATA_YEAR",
+    legend = "region's unemployment rate"
 )
 
 plot(p_unemp)
@@ -156,12 +168,19 @@ rs_ed_attain <- lapply(pumslist_p, psrc_pums_count, group_vars = "ED_ATTAIN", in
 ```
 
 ```{r}
-p_ed_attain <- plot_rates(
-    filter(rs_ed_attain, ED_ATTAIN != "Total"),
-    group_vars = c("DATA_YEAR", "ED_ATTAIN"),
-    rate_var = "share",
-    whiskers = TRUE, # error bars
-    xlabi = list(size = 2, angle = 90, hjust = 0)
+# p_ed_attain <- plot_rates(
+#     filter(rs_ed_attain, ED_ATTAIN != "Total"),
+#     group_vars = c("DATA_YEAR", "ED_ATTAIN"),
+#     rate_var = "share",
+#     whiskers = TRUE, # error bars
+#     xlabi = list(size = 2, angle = 90, hjust = 0)
+# )
+
+p_ed_attain <- plot_stackbar_rates(
+    rs_ed_attain[ED_ATTAIN != "Total"],
+    xcol = "DATA_YEAR",
+    ycol = "share",
+    fill = "ED_ATTAIN"
 )
 
 plot(p_ed_attain)
@@ -178,11 +197,18 @@ rs_own_rent <- lapply(pumslist_h, psrc_pums_count, group_vars = "OWN_RENT", incl
 ```
 
 ```{r}
-p_own_rent <- plot_rates(
-    filter(rs_own_rent, OWN_RENT == "Owned"),
-    group_vars = "DATA_YEAR",
-    rate_var = "share",
-    whiskers = TRUE # error bars
+# p_own_rent <- plot_rates(
+#     filter(rs_own_rent, OWN_RENT == "Owned"),
+#     group_vars = "DATA_YEAR",
+#     rate_var = "share",
+#     whiskers = TRUE # error bars
+# )
+
+p_own_rent <- plot_line_rates(
+    rs_own_rent[OWN_RENT == "Owned"],
+    xcol = "DATA_YEAR",
+    ycol = "share",
+    legend = "region's homeownership rates"
 )
 
 plot(p_own_rent)
@@ -194,15 +220,24 @@ plot(p_own_rent)
 rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
 
-p_rent_burden <- plot_rates(
-    filter(rs_rent_burden, 
-           rent_burden %in% c("Greater than 50 percent",
-                              "Between 30 and 50 percent")),
-    group_vars = c("DATA_YEAR", "rent_burden"),
-    rate_var = "share",
-    whiskers = TRUE, # error bars
-    xlabi = list(size = 2, angle = 90, hjust = 0)
+# p_rent_burden <- plot_rates(
+#     filter(rs_rent_burden, 
+#            rent_burden %in% c("Greater than 50 percent",
+#                               "Between 30 and 50 percent")),
+#     group_vars = c("DATA_YEAR", "rent_burden"),
+#     rate_var = "share",
+#     whiskers = TRUE, # error bars
+#     xlabi = list(size = 2, angle = 90, hjust = 0)
+# )
+
+p_rent_burden <- plot_stackbar_rates(
+    rs_rent_burden[rent_burden %in% c("Greater than 50 percent",
+                              "Between 30 and 50 percent")],
+    xcol = "DATA_YEAR",
+    ycol = "share",
+    fill = "rent_burden"
 )
+
 
 plot(p_rent_burden)
 ```
@@ -215,11 +250,18 @@ rs_health_insurance <- lapply(pumslist_p, psrc_pums_count, group_vars = "health_
 ```
 
 ```{r}
-p_no_health_insurance <- plot_rates(
-    filter(rs_health_insurance, health_insurance == "No health insurance"),
-    group_vars = "DATA_YEAR",
-    rate_var = "share",
-    whiskers = TRUE # error bars
+# p_no_health_insurance <- plot_rates(
+#     filter(rs_health_insurance, health_insurance == "No health insurance"),
+#     group_vars = "DATA_YEAR",
+#     rate_var = "share",
+#     whiskers = TRUE # error bars
+# )
+
+p_no_health_insurance <- plot_line_rates(
+    rs_health_insurance[health_insurance == "No health insurance"],
+    xcol = "DATA_YEAR",
+    ycol = "share",
+    legend = "region's lacking insurance rate"
 )
 
 plot(p_no_health_insurance)

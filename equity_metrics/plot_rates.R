@@ -218,3 +218,20 @@ plot_line_rates <- function(dt, xcol = "year", ycol = "share", fill = NULL, lege
         ... )
     return(pop_chart)
 }
+
+
+plot_stackbar_rates <- function(dt, xcol = "year", ycol = "share", fill = NULL, ...) {
+    
+    dt[, (xcol) := as.character(get(xcol))] # category axis needs to be character/factor
+    
+    plot_data <- as_tibble(dt)  
+    
+    pop_chart <- static_column_chart(
+        t     = plot_data,
+        x     =  xcol,       # category (x) axis
+        y     =  ycol,       # numeric value to plot
+        fill  =  fill,
+        pos = "stack",
+        ... )
+    return(pop_chart)
+}
