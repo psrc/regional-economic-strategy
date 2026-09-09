@@ -10,6 +10,11 @@ library(magrittr)
 library(dplyr)
 library(data.table)
 
+save_data <- TRUE
+
+if(save_data) 
+    library(writexl)
+
 # Note: one has to set the data path in get_pums_res_equity.R
 lapply(c("get_pums_res_equity.R",
          "plot_rates.R", "plot_counts.R"), source)
@@ -27,6 +32,8 @@ pumslist_p <- lapply(pumslist_p, prep_wage_data) %>%
               lapply(prep_labor_force_data) %>%
               lapply(prep_health_insurance_data) %>%
               lapply(prep_poverty_data)
+
+results <- list() # for collecting all results to store as spreadsheet
 ```
 
 ## Population Indicators
@@ -34,12 +41,16 @@ pumslist_p <- lapply(pumslist_p, prep_wage_data) %>%
 ### Population
 
 ```{r}
+#| label: population_data
 rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRUE)
+rs_pop[, `:=`(share = NULL, share_moe = NULL)]
+results[["population"]] <- rs_pop
 ```
 
 
 
 ```{r}
+#| label: population_plot
 #p_pop <- plot_counts(rs_pop, "DATA_YEAR", "count", moe = "count_moe")
 p_pop <- plot_line_counts(rs_pop, "DATA_YEAR", "count", 
                           legend = "region's population")
@@ -49,16 +60,15 @@ plot(p_pop)
 ### Median household income
 
 ```{r}
+#| label: income_data
 rs_hhincome <- lapply(pumslist_h, psrc_pums_median, stat_var = "HINCP") %>% 
     data.table::rbindlist(fill=TRUE)
+results[["income"]] <- rs_hhincome
 ```
 
-```{r}
-
-plot(p_hhincome)
-```
 
 ```{r}
+#| label: income_plot
 #p_hhincome <- plot_counts(rs_hhincome, "DATA_YEAR", "HINCP_median", moe = "HINCP_median_moe")
 p_hhincome <- plot_line_counts(rs_hhincome, "DATA_YEAR", "HINCP_median", legend = "region's median income")
 plot(p_hhincome)
@@ -69,16 +79,19 @@ plot(p_hhincome)
 ### Poverty rates
 
 ```{r}
+#| label: poverty_data
 rs_poverty <- lapply(pumslist_p, psrc_pums_count, group_vars = "poverty", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["poverty"]] <- rs_poverty[poverty == "Yes"]
 ```
 
 
 ```{r}
+#| label: poverty_plot
 #p_poverty <- plot_rates(filter(rs_poverty, poverty == "Yes"),
 #    group_vars = "DATA_YEAR", whiskers = TRUE) # error bars 
 p_poverty <- plot_line_rates(
-    rs_poverty[poverty == "Yes"],
+    results[["poverty"]],
     xcol = "DATA_YEAR",
     legend = "region's poverty rates"
 )
@@ -90,11 +103,14 @@ plot(p_poverty)
 ### Low income rates
 
 ```{r}
+#| label: low_income_data
 rs_lowinc <- lapply(pumslist_p, psrc_pums_count, group_vars = "low_income", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["low_income"]] <- rs_lowinc[low_income == "Yes"]
 ```
 
 ```{r}
+#| label: low_income_plot
 #p_lowinc <- plot_rates(
 #    filter(rs_lowinc, low_income == "Yes"),
 #    group_vars = "DATA_YEAR",
@@ -102,7 +118,7 @@ rs_lowinc <- lapply(pumslist_p, psrc_pums_count, group_vars = "low_income", incl
 #)
 
 p_lowinc <- plot_line_rates(
-    rs_lowinc[low_income == "Yes"],
+    results[["low_income"]],
     xcol = "DATA_YEAR",
     legend = "region's low income rates"
 )
@@ -115,11 +131,14 @@ plot(p_lowinc)
 ### Labor force participation (16 and over)
 
 ```{r}
+#| label: labor_force_data
 rs_lfp <- lapply(pumslist_p, psrc_pums_count, group_vars = "labor_force_status", incl_na=FALSE) %>%
    data.table::rbindlist(fill=TRUE)
+results[["labor_force"]] <- rs_lfp[labor_force_status == "In labor force"]
 ```
 
 ```{r}
+#| label: labor_force_plot
 #p_lfp <- plot_rates(
 #    filter(rs_lfp, labor_force_status == "In labor force"),
 #    group_vars = "DATA_YEAR",
@@ -127,7 +146,7 @@ rs_lfp <- lapply(pumslist_p, psrc_pums_count, group_vars = "labor_force_status",
 #)
 
 p_lfp <- plot_line_rates(
-    rs_lfp[labor_force_status == "In labor force"],
+    results[["labor_force"]],
     xcol = "DATA_YEAR",
     legend = "region's in-labor force"
 )
@@ -138,11 +157,14 @@ plot(p_lfp)
 ### Unemployment
 
 ```{r}
+#| label: unemployment_data
 rs_unemp <- lapply(pumslist_p, psrc_pums_count, group_vars = "employment_status", incl_na=FALSE) %>%
    data.table::rbindlist(fill=TRUE)
+results[["unemployment"]] <- rs_unemp[employment_status == "Unemployed"]
 ```
 
 ```{r}
+#| label: unemployment_plot
 #p_unemp <- plot_rates(
 #    filter(rs_unemp, employment_status == "Unemployed"),
 #    group_vars = "DATA_YEAR",
@@ -150,7 +172,7 @@ rs_unemp <- lapply(pumslist_p, psrc_pums_count, group_vars = "employment_status"
 #)
 
 p_unemp <- plot_line_rates(
-    rs_unemp[employment_status == "Unemployed"],
+    results[["unemployment"]],
     xcol = "DATA_YEAR",
     legend = "region's unemployment rate"
 )
@@ -163,11 +185,14 @@ plot(p_unemp)
 ### Educational Attainment
 
 ```{r}
+#| label: education_data
 rs_ed_attain <- lapply(pumslist_p, psrc_pums_count, group_vars = "ED_ATTAIN", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["education"]] <- rs_ed_attain[ED_ATTAIN != "Total"]
 ```
 
 ```{r}
+#| label: education_plot
 # p_ed_attain <- plot_rates(
 #     filter(rs_ed_attain, ED_ATTAIN != "Total"),
 #     group_vars = c("DATA_YEAR", "ED_ATTAIN"),
@@ -177,7 +202,7 @@ rs_ed_attain <- lapply(pumslist_p, psrc_pums_count, group_vars = "ED_ATTAIN", in
 # )
 
 p_ed_attain <- plot_stackbar_rates(
-    rs_ed_attain[ED_ATTAIN != "Total"],
+    results[["education"]],
     xcol = "DATA_YEAR",
     ycol = "share",
     fill = "ED_ATTAIN"
@@ -192,11 +217,14 @@ plot(p_ed_attain)
 ### Homeownership
 
 ```{r}
+#| label: homeownership_data
 rs_own_rent <- lapply(pumslist_h, psrc_pums_count, group_vars = "OWN_RENT", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["homeownership"]] <- rs_own_rent[OWN_RENT == "Owned"]
 ```
 
 ```{r}
+#| label: homeownership_plot
 # p_own_rent <- plot_rates(
 #     filter(rs_own_rent, OWN_RENT == "Owned"),
 #     group_vars = "DATA_YEAR",
@@ -205,7 +233,7 @@ rs_own_rent <- lapply(pumslist_h, psrc_pums_count, group_vars = "OWN_RENT", incl
 # )
 
 p_own_rent <- plot_line_rates(
-    rs_own_rent[OWN_RENT == "Owned"],
+    results[["homeownership"]],
     xcol = "DATA_YEAR",
     ycol = "share",
     legend = "region's homeownership rates"
@@ -217,9 +245,16 @@ plot(p_own_rent)
 ### Renter cost burden
 
 ```{r}
+#| label: renter_cost_data
 rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["renter_cost_burden"]] <- rs_rent_burden[
+    rent_burden %in% c("Greater than 50 percent", "Between 30 and 50 percent")]
+```
 
+
+```{r}
+#| label: renter_cost_plot
 # p_rent_burden <- plot_rates(
 #     filter(rs_rent_burden, 
 #            rent_burden %in% c("Greater than 50 percent",
@@ -231,8 +266,7 @@ rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden"
 # )
 
 p_rent_burden <- plot_stackbar_rates(
-    rs_rent_burden[rent_burden %in% c("Greater than 50 percent",
-                              "Between 30 and 50 percent")],
+    results[["renter_cost_burden"]],
     xcol = "DATA_YEAR",
     ycol = "share",
     fill = "rent_burden"
@@ -245,11 +279,15 @@ plot(p_rent_burden)
 ### Lacking Health Insurance
 
 ```{r}
+#| label: insurance_data
 rs_health_insurance <- lapply(pumslist_p, psrc_pums_count, group_vars = "health_insurance", incl_na=FALSE) %>% 
     data.table::rbindlist(fill=TRUE)
+results[["no_health_insurance"]] <- rs_health_insurance[
+    health_insurance == "No health insurance"]
 ```
 
 ```{r}
+#| label: insurance_plot
 # p_no_health_insurance <- plot_rates(
 #     filter(rs_health_insurance, health_insurance == "No health insurance"),
 #     group_vars = "DATA_YEAR",
@@ -258,7 +296,7 @@ rs_health_insurance <- lapply(pumslist_p, psrc_pums_count, group_vars = "health_
 # )
 
 p_no_health_insurance <- plot_line_rates(
-    rs_health_insurance[health_insurance == "No health insurance"],
+    results[["no_health_insurance"]],
     xcol = "DATA_YEAR",
     ycol = "share",
     legend = "region's lacking insurance rate"
@@ -270,6 +308,7 @@ plot(p_no_health_insurance)
 ### Lacking Internet Access
 
 ```{r}
+#| label: internet_data
 rs_internet <- NULL
 for (i in 1:length(pumslist_h)){
     if(! "internet" %in% colnames(pumslist_h[[i]])) next
@@ -278,11 +317,14 @@ for (i in 1:length(pumslist_h)){
                                         incl_na=FALSE)
 }
 rs_internet <- data.table::rbindlist(rs_internet, fill=TRUE)
+results[["no_internet"]] <- rs_internet[
+    DATA_YEAR > 2016 & internet == "Without internet access"]
 ```
 
 ```{r}
+#| label: internet_plot
 p_internet <- plot_rates(
-    filter(rs_internet, DATA_YEAR > 2016 & internet == "Without internet access"),
+    results[["no_internet"]],
     group_vars = "DATA_YEAR",
     rate_var = "share",
     whiskers = TRUE # error bars
@@ -300,5 +342,12 @@ plot(p_internet)
 ## Global Competitiveness
 
 ```{r}
+
+```
+
+```{r}
+# save data
+if(save_data)
+    write_xlsx(results, path = paste0("annual_comparison_data_", Sys.Date(), ".xlsx"))
 
 ```

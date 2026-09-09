@@ -207,6 +207,7 @@ plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share",
 
 plot_line_rates <- function(dt, xcol = "year", ycol = "share", fill = NULL, legend = "share", ...) {
     
+    dt <- copy(dt)
     dt[, category := legend]
     plot_data <- as_tibble(dt)  
     

@@ -23,6 +23,7 @@ plot_counts <- function(dt, xcol = "year", ycol = "count", ...) {
 
 plot_line_counts <- function(dt, xcol = "year", ycol = "count", fill = NULL, legend = "counts", ...) {
     
+    dt <- copy(dt)
     dt[, category := legend]
     plot_data <- as_tibble(dt)  
     
