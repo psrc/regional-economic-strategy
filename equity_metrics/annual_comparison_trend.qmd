@@ -37,8 +37,12 @@ pumslist_p <- lapply(pumslist_p, prep_wage_data) %>%
 rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRUE)
 ```
 
+
+
 ```{r}
-p_pop <- plot_counts(rs_pop, "DATA_YEAR", "count", moe = "count_moe")
+#p_pop <- plot_counts(rs_pop, "DATA_YEAR", "count", moe = "count_moe")
+p_pop <- plot_line_counts(rs_pop, "DATA_YEAR", "count", 
+                          legend = "region's population")
 plot(p_pop)
 ```
 
@@ -50,7 +54,13 @@ rs_hhincome <- lapply(pumslist_h, psrc_pums_median, stat_var = "HINCP") %>%
 ```
 
 ```{r}
-p_hhincome <- plot_counts(rs_hhincome, "DATA_YEAR", "HINCP_median", moe = "HINCP_median_moe")
+
+plot(p_hhincome)
+```
+
+```{r}
+#p_hhincome <- plot_counts(rs_hhincome, "DATA_YEAR", "HINCP_median", moe = "HINCP_median_moe")
+p_hhincome <- plot_line_counts(rs_hhincome, "DATA_YEAR", "HINCP_median", legend = "region's median income")
 plot(p_hhincome)
 ```
 
@@ -72,6 +82,16 @@ p_poverty <- plot_rates(
 
 plot(p_poverty)
 ```
+```{r}
+p_poverty <- plot_line_rates(
+    rs_poverty[poverty == "Yes"],
+    xcol = "DATA_YEAR",
+    legend = "poverty rates"
+)
+
+plot(p_poverty)
+```
+
 
 ### Low income rates
 
@@ -208,8 +228,14 @@ plot(p_no_health_insurance)
 ### Lacking Internet Access
 
 ```{r}
-rs_internet <- lapply(pumslist_h, psrc_pums_count, group_vars = "internet", incl_na=FALSE) %>% 
-    data.table::rbindlist(fill=TRUE)
+rs_internet <- NULL
+for (i in 1:length(pumslist_h)){
+    if(! "internet" %in% colnames(pumslist_h[[i]])) next
+    rs_internet[[i]] <- psrc_pums_count(pumslist_h[[i]], 
+                                        group_vars = "internet", 
+                                        incl_na=FALSE)
+}
+rs_internet <- data.table::rbindlist(rs_internet, fill=TRUE)
 ```
 
 ```{r}

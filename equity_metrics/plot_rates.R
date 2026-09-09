@@ -203,3 +203,18 @@ plot_rates <- function(dt, group_vars = c("PRACE", "SEX"), rate_var = "share",
 
   return(p)
 }
+
+
+plot_line_rates <- function(dt, xcol = "year", ycol = "share", fill = NULL, legend = "share", ...) {
+    
+    dt[, category := legend]
+    plot_data <- as_tibble(dt)  
+    
+    pop_chart <- static_line_chart(
+        t     = plot_data,
+        x     =  xcol,       # category (x) axis
+        y     =  ycol,       # numeric value to plot
+        fill  =  if(is.null(fill)) "category" else fill,
+        ... )
+    return(pop_chart)
+}

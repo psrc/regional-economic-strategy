@@ -20,3 +20,17 @@ plot_counts <- function(dt, xcol = "year", ycol = "count", ...) {
         ... )
     return(pop_chart)
 }
+
+plot_line_counts <- function(dt, xcol = "year", ycol = "count", fill = NULL, legend = "counts", ...) {
+    
+    dt[, category := legend]
+    plot_data <- as_tibble(dt)  
+    
+    pop_chart <- static_line_chart(
+        t     = plot_data,
+        x     =  xcol,       # category (x) axis
+        y     =  ycol,       # numeric value to plot
+        fill  =  if(is.null(fill)) "category" else fill,
+        ... )
+    return(pop_chart)
+}
