@@ -79,7 +79,7 @@ prep_renter_burden_data <- function(raw_pumsdata_h){
 prep_health_insurance_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- raw_pumsdata_p %>% mutate(
     health_insurance = factor(case_when(
-        !grepl("^(Civilian)", ESR) | AGEP < 16 | AGEP > 64 | grepl("^Inst", RELSHIPP) ~ NA_character_,
+        !grepl("^(Civilian)", ESR) | !between(AGEP, 16, 64) | grepl("^Inst", RELSHIPP) ~ NA_character_,
         grepl("^With", HICOV) ~ "With health insurance",
         grepl("^No", HICOV) ~ "No health insurance")))
   return(prepped_pumsdata_p)
@@ -91,7 +91,7 @@ prep_health_insurance_data <- function(raw_pumsdata_p){
 prep_labor_force_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- mutate(raw_pumsdata_p,
     labor_force_status = case_when(
-      AGEP < 16 | grepl("^Armed", ESR) | grepl("^Inst", RELSHIPP) ~ NA_character_,
+      !between(AGEP, 16, 64) | grepl("^Armed", ESR) | grepl("^Inst", RELSHIPP) ~ NA_character_,
       grepl("^(Civilian|Unemployed)", ESR) ~ "In labor force",
       ESR == "Not in labor force" ~ "Not in labor force"
     ),
