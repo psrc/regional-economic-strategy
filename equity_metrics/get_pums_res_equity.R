@@ -36,7 +36,8 @@ get_pums_res_equity_p <- function(dyear, span = 5, pums_rds = jrds){
 
 get_pums_res_equity_h <- function(dyear, span = 5, pums_rds = jrds){
     if(dyear < 2017){
-    message("Internet access data is not available for years prior to 2017.")
+        message("Internet access data is not available for years prior to 2017.")
+        hvars <- setdiff(hvars, "ACCESSINET")
     }
     # Variable changed names w/ 2020 data; swap name temporarily for older data
     if(dyear %in% 2017:2019){hvars <- replace(hvars, hvars=="ACCESSINET","ACCESS")}
@@ -50,6 +51,7 @@ get_pums_res_equity_h <- function(dyear, span = 5, pums_rds = jrds){
 # Add internet access variable 
 # - required variables: ACCESSINET
 prep_internet_data <- function(raw_pumsdata_h){
+    if(! "ACCESSINET" %in% colnames(raw_pumsdata_h)) return(raw_pumsdata_h)
   prepped_pumsdata_h <- raw_pumsdata_h %>% mutate(
     internet = factor(case_when(grepl("^Yes", ACCESSINET) ~ "With internet access",
                                 grepl("^No", ACCESSINET) ~ "Without internet access")))
