@@ -15,6 +15,7 @@ pvars <- c("AGEP",
            "NAICSP",              # Industry code
            "POVPIP",              # Income as a percentage of the poverty level
            "PRACE",               # PSRC non-overlapping race/ethnicity variable
+           "RELSHIPP",            # Relationship variable (to exclude institutionalized)
            "SEX",
            "SOCP3",               # Occupation code
            "WAGP"                 # Wage or salary income past 12 months      
@@ -72,11 +73,11 @@ prep_renter_burden_data <- function(raw_pumsdata_h){
 # Add personal variables --------------
 
 # Add personal health insurance variable 
-# - required input variables: HICOV, ESR
+# - required input variables: HICOV, ESR, AGEP, RELSHIPP
 prep_health_insurance_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- raw_pumsdata_p %>% mutate(
     health_insurance = factor(case_when(
-        !grepl("^(Civilian|Armed)", ESR) | AGEP < 16 ~ NA_character_,
+        !grepl("^(Civilian)", ESR) | AGEP < 16 | AGEP > 64 | grepl("^Inst", RELSHIPP) ~ NA_character_,
         grepl("^With", HICOV) ~ "With health insurance",
         grepl("^No", HICOV) ~ "No health insurance")))
   return(prepped_pumsdata_p)
@@ -84,18 +85,18 @@ prep_health_insurance_data <- function(raw_pumsdata_p){
 
 # Add labor force participation & employment status variables; 
 # - limit to working age (16-64)
-# - required variables: AGEP, ESR
+# - required variables: AGEP, ESR, RELSHIPP
 prep_labor_force_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- mutate(raw_pumsdata_p,
     labor_force_status = case_when(
-      AGEP < 16 ~ NA_character_,
-      between(AGEP, 16, 64) & grepl("^(Civilian|Armed|Unemployed)", ESR) ~ "In labor force",
-      TRUE ~ ESR
+      AGEP < 16 | grepl("^Armed", ESR) | grepl("^Inst", RELSHIPP) ~ NA_character_,
+      grepl("^(Civilian|Unemployed)", ESR) ~ "In labor force",
+      ESR == "Not in labor force" ~ "Not in labor force"
     ),
     employment_status = case_when(
-      AGEP < 16 | grepl("^Not", ESR) ~ NA_character_,
-      between(AGEP, 16, 64) & grepl("^(Civilian|Armed)", ESR) ~ "Employed",
-      TRUE ~ ESR
+      AGEP < 16 | grepl("^(Armed|Not)", ESR) | grepl("^Inst", RELSHIPP) ~ NA_character_,
+      grepl("^(Civilian)", ESR) ~ "Employed",
+      ESR == "Unemployed" ~ "Unemployed"
     ),
     PRACE_x_SEX = paste0(PRACE, ";", SEX)
   )
@@ -104,11 +105,11 @@ prep_labor_force_data <- function(raw_pumsdata_p){
 
 # Add personal wage/salary earnings (before taxes)
 # - limit to working & over age 16
-# - required variables: WAGP, ESR
+# - required variables: WAGP, ESR, RELSHIPP
 prep_wage_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- raw_pumsdata_p %>% mutate(
     wages = if_else(
-        !grepl("^(Civilian|Armed)", ESR) | AGEP < 16, NA_real_,
+        !grepl("^(Civilian)", ESR) | AGEP < 16 | grepl("^Inst", RELSHIPP), NA_real_,
          WAGP))
   return(prepped_pumsdata_p)
 }
