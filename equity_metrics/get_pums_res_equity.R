@@ -30,7 +30,13 @@ hvars <- c("ACCESSINET",          # Internet access
 )
 
 get_pums_res_equity_p <- function(dyear, span = 5, pums_rds = jrds){
+    if(dyear < 2019){
+        pvars <- replace(pvars, pvars == "RELSHIPP", "RELP")
+    }
     pumsdata <- get_psrc_pums(span = span, dyear = dyear, level = "p", vars = pvars, dir = pums_rds)
+    if(dyear < 2019){
+        pumsdata <- rename(pumsdata , RELSHIPP = RELP)
+    }
     return(pumsdata)
 }
 
