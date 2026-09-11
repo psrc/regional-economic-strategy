@@ -4,17 +4,20 @@ format: html
 editor: visual
 ---
 
-```{r, echo=FALSE}
+```{r setup, echo=TRUE, output=FALSE}
 library(magrittr)
 library(dplyr)
 library(data.table)
 
-lapply(c("get_pums_res_equity.R",
-         "plot_rates.R"), source)
+save_data <- FALSE
+
+script_dir <- if (file.exists("get_pums_res_equity.R")) "." else "equity_metrics"
+lapply(file.path(script_dir, c("get_pums_res_equity.R", "plot_rates.R", "plot_counts.R", "render_table.R")),
+    source, echo = FALSE)
 
 ```
 
-```{r}
+```{r data-retrieval}
 dyear <- 2024
 
 pumsdata_h <- get_pums_res_equity_h(dyear = dyear)
@@ -31,90 +34,165 @@ pumsdata_p <- pumsdata_p %>%
 
 ```
 
-## Background
+## Background Metrics
 
-```{r}
-# Population by race/ethnicity
-#source("https://raw.githubusercontent.com/psrc/demographic-profile/refs/heads/main/2024/01-pop-by-race-census_categories.R")
+### Population by race/ethnicity
+
+```{r pop}
 
 rs_pop <- psrc_pums_count(pumsdata_p, group_vars = c("PRACE"))
+tbl_pop <- filter(rs_pop, PRACE != "Total")
 
-# Median household income by race/ethnicity
+p_pop <- plot_rates(
+  tbl_pop,
+  group_vars = "PRACE",
+  whiskers = TRUE # error bars
+)
+
+plot(p_pop)
+```
+
+```{r pop-table}
+render_data_table(tbl_pop, caption = "Population by Race/Ethnicity")
+```
+
+### Median household income by race/ethnicity
+
+```{r median-household-income}
 
 rs_hhincome <- psrc_pums_median(pumsdata_h, stat_var = "HINCP", group_vars = c("HRACE"))
+tbl_hhincome <- filter(rs_hhincome, HRACE != "Total")
 
-# Poverty rates by race/ethnicity
+p_hhincome <- plot_counts(
+  tbl_hhincome,
+    xcol = "HRACE",
+    ycol = "HINCP_median"
+)
+
+plot(p_hhincome)
+```
+
+```{r median-household-income-table}
+render_data_table(tbl_hhincome, caption = "Median Household Income by Race/Ethnicity")
+```
+
+### Poverty rates by race/ethnicity
+
+```{r poverty-rates}
 
 rs_poverty <- psrc_pums_count(pumsdata_p, group_vars = c("PRACE", "poverty"), incl_na=FALSE)
+tbl_poverty <- filter(rs_poverty, poverty == "Yes")
 
 p_poverty <- plot_rates(
-    filter(rs_poverty, poverty == "Yes"),
+    tbl_poverty,
     group_vars = "PRACE",
-    whiskers = TRUE # error bars 
+    whiskers = TRUE # error bars
 )
 
 plot(p_poverty)
+```
 
-# Low income rates by race/ethnicity
+```{r poverty-rates-table}
+render_data_table(tbl_poverty, caption = "Poverty Rates by Race/Ethnicity")
+```
+
+### Low income rates by race/ethnicity
+
+```{r low-income-rates}
 
 rs_lowinc <- psrc_pums_count(pumsdata_p, group_vars = c("PRACE", "low_income"), incl_na=FALSE)
+tbl_lowinc <- filter(rs_lowinc, low_income == "Yes")
 
 p_lowinc <- plot_rates(
-    filter(rs_lowinc, low_income == "Yes"),
+    tbl_lowinc,
     group_vars = "PRACE",
-    whiskers = TRUE # error bars 
+    whiskers = TRUE # error bars
 )
 
 plot(p_lowinc)
+```
 
-# Unemployment / labor force participation (16 and over) by gender and race/ethnicity
+```{r low-income-rates-table}
+render_data_table(tbl_lowinc, caption = "Low Income Rates by Race/Ethnicity")
+```
+
+### Labor force participation (16-64) by gender and race/ethnicity
+
+```{r unemployment-labor-force-participation}
+
 rs_lfp <- psrc_pums_count(pumsdata_p,
     group_vars = c("PRACE_x_SEX", "labor_force_status"), 
     incl_na=FALSE) %>%
+   dplyr::filter(PRACE_x_SEX != "Total") %>%
    tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+tbl_lfp <- filter(rs_lfp, labor_force_status == "In labor force")
 
 p_lfp <- plot_rates(
-    filter(rs_lfp, labor_force_status == "In labor force"),
+    tbl_lfp,
     group_vars = c("PRACE", "SEX"),
-    whiskers = TRUE # error bars 
+    whiskers = TRUE # error bars
 )
 
 plot(p_lfp)
+```
+
+```{r labor-force-participation-table}
+render_data_table(tbl_lfp, caption = "Labor Force Participation by Gender and Race/Ethnicity")
+```
+
+### Unemployment (16+) by gender and race/ethnicity
+
+```{r unemployment-rates}
 
 rs_unemp <- psrc_pums_count(pumsdata_p,
     group_vars = c("PRACE_x_SEX", "employment_status"), 
     incl_na=FALSE) %>%
+   dplyr::filter(PRACE_x_SEX != "Total") %>%
    tidyr::separate(PRACE_x_SEX, into = c("PRACE", "SEX"), sep = ";")
+tbl_unemp <- filter(rs_unemp, employment_status == "Unemployed")
 
 p_unemp <- plot_rates(
-    filter(rs_unemp, employment_status == "Unemployed"),
+    tbl_unemp,
     group_vars = c("PRACE", "SEX"),
-    whiskers = TRUE # error bars 
+    whiskers = TRUE # error bars
 )
 
 plot(p_unemp)
 ```
 
-## Economic Opportunity
+```{r unemployment-rates-table}
+render_data_table(tbl_unemp, caption = "Unemployment Rates by Gender and Race/Ethnicity")
+```
 
-```{r}
+### Economic Opportunity
 
-# Educational Attainment by race/ethnicity
+### Educational Attainment by race/ethnicity
+
+```{r educational-attainment}
+
 rs_ed_attain <- psrc_pums_count(pumsdata_p, 
     group_vars = c("PRACE", "ED_ATTAIN"), 
     incl_na=FALSE)
+tbl_ed_attain <- filter(rs_ed_attain, ED_ATTAIN != "Total")
 
 p_ed_attain <- plot_rates(
-    filter(rs_ed_attain, ED_ATTAIN != "Total"),
+    tbl_ed_attain,
     group_vars = c("PRACE", "ED_ATTAIN"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
 
 plot(p_ed_attain)
+```
 
-# Kindergarten readiness - direct sourcing
-# -- uses RSocrata `remotes::install_github("Chicago/RSocrata")` 
+```{r educational-attainment-table}
+render_data_table(tbl_ed_attain, caption = "Educational Attainment by Race/Ethnicity")
+```
+
+### Kindergarten readiness by race/ethnicity
+
+```{r kindergarten-readiness}
+#-- direct sourcing; uses RSocrata `remotes::install_github("Chicago/RSocrata")` 
 source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
 
 ospi_kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-26 school year
@@ -129,64 +207,96 @@ rs_kready <- ospi_kready %>%
 
 p_kready <- plot_rates(rs_kready,
     group_vars = "studentgroup",
-    whiskers = TRUE # error bars
+    whiskers = FALSE # no MOE for this metric
 )  
 
+plot(p_kready)
+
+```
+
+```{r kindergarten-readiness-table}
+render_data_table(rs_kready, caption = "Kindergarten Readiness by Race/Ethnicity")
 ```
 
 ## Quality of Life
 
-```{r}
-# Homeownership by race/ethnicity
+### Homeownership by race/ethnicity
+
+```{r homeownership}
+
 rs_own_rent <- psrc_pums_count(pumsdata_h, 
     group_vars = c("HRACE", "OWN_RENT"), 
     incl_na=FALSE)
+tbl_own_rent <- filter(rs_own_rent, OWN_RENT == "Own")
 
 p_own_rent <- plot_rates(
-    filter(rs_own_rent, OWN_RENT == "Own"),
+    tbl_own_rent,
     group_vars = c("HRACE"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
 
 plot(p_own_rent)
+```
 
-# Renter cost burden by race/ethnicity
+```{r homeownership-table}
+render_data_table(tbl_own_rent, caption = "Homeownership by Race/Ethnicity")
+```
 
+### Renter cost burden by race/ethnicity
+
+```{r renter-cost-burden}
 rs_rent_burden <- psrc_pums_count(pumsdata_h, 
     group_vars = c("HRACE", "rent_burden"), 
     incl_na=FALSE)
+tbl_rent_burden <- filter(rs_rent_burden, 
+           rent_burden %in% c("Greater than 50 percent",
+                              "Between 30 and 50 percent"))
 
 p_rent_burden <- plot_rates(
-    filter(rs_rent_burden, 
-           rent_burden %in% c("Greater than 50 percent",
-                              "Between 30 and 50 percent")),
+    tbl_rent_burden,
     group_vars = c("HRACE", "rent_burden"), 
     rate_var = "share",
     whiskers = TRUE # error bars
 )
 
 plot(p_rent_burden)
+```
 
-# Health insurance coverage by race/ethnicity
+```{r renter-cost-burden-table}
+render_data_table(tbl_rent_burden, caption = "Renter Cost Burden by Race/Ethnicity")
+```
+
+### Health insurance coverage by race/ethnicity
+
+```{r health-insurance}
 rs_health_insurance <- psrc_pums_count(pumsdata_p, 
     group_vars = c("PRACE", "health_insurance"), 
     incl_na=FALSE)
+tbl_health_insurance <- filter(rs_health_insurance, health_insurance == "No health insurance")
 
 p_no_health_insurance <- plot_rates(
-    filter(rs_health_insurance, health_insurance == "No health insurance"),
+    tbl_health_insurance,
     group_vars = c("PRACE"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
 
 plot(p_no_health_insurance)
+```
 
-# Internet Access by race/ethnicity
+```{r health-insurance-table}
+render_data_table(tbl_health_insurance, caption = "Lack of Health Insurance by Race/Ethnicity")
+```
+
+### Internet Access by race/ethnicity
+
+```{r internet-access}
 rs_internet <- psrc_pums_count(pumsdata_h, group_vars = c("HRACE", "internet"))
+tbl_internet <- filter(rs_internet, internet != "Total")
 
 p_internet <- psrcplot::static_bar_chart(
-    t = filter(rs_internet, internet != "Total"),
+    t = tbl_internet,
     y = "HRACE",
     x = "share",
     fill = "internet",
@@ -200,14 +310,42 @@ p_internet <- psrcplot::static_bar_chart(
 plot(p_internet)
 ```
 
+```{r internet-access-table}
+render_data_table(tbl_internet, caption = "Internet Access by Race/Ethnicity")
+```
+
 ## Business Climate
 
-```{r}
+```{r business-climate-plots}
 
 ```
 
 ## Global Competitiveness
 
-```{r}
+```{r global-competitiveness-plots}
+
+```
+
+##Write tables to file
+
+```{r save-results-to-file, echo=TRUE, execute=FALSE}
+if(save_data){
+    library(writexl)
+    results <- list() # for collecting all results to store as spreadsheet
+    results$pop <- rs_pop
+    results$hh_income <- rs_hhincome
+    results$poverty <- rs_poverty
+    results$lowinc <- rs_lowinc
+    results$lfp <- rs_lfp
+    results$unemp <- rs_unemp
+    results$ed_attain <- rs_ed_attain
+    results$kready <- rs_kready
+    results$own_rent <- rs_own_rent
+    results$rent_burden <- rs_rent_burden
+    results$health_insurance <- rs_health_insurance
+    results$internet <- rs_internet
+
+    write_xlsx(results, path = paste0("equity_metrics", Sys.Date(), ".xlsx"))
+}
 
 ```
