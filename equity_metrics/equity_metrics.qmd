@@ -9,7 +9,7 @@ library(magrittr)
 library(dplyr)
 library(data.table)
 
-save_data <- FALSE
+save_data <- TRUE
 
 script_dir <- if (file.exists("get_pums_res_equity.R")) "." else "equity_metrics"
 lapply(file.path(script_dir, c("get_pums_res_equity.R", "plot_rates.R", "plot_counts.R", "render_table.R")),
@@ -328,7 +328,7 @@ render_data_table(tbl_internet, caption = "Internet Access by Race/Ethnicity")
 
 ##Write tables to file
 
-```{r save-results-to-file, echo=TRUE, execute=FALSE}
+```{r save-results-to-file, echo=TRUE}
 if(save_data){
     library(writexl)
     results <- list() # for collecting all results to store as spreadsheet

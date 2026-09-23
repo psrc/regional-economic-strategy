@@ -42,12 +42,10 @@ results <- list() # for collecting all results to store as spreadsheet
 
 ```{r}
 #| label: population_data
-rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRUE)
+rs_pop <- lapply(pumslist_p, psrc_pums_count) %>% data.table::rbindlist(fill=TRUE) %>% setDT()
 rs_pop[, `:=`(share = NULL, share_moe = NULL)]
 results[["population"]] <- rs_pop
 ```
-
-
 
 ```{r}
 #| label: population_plot
@@ -62,10 +60,9 @@ plot(p_pop)
 ```{r}
 #| label: income_data
 rs_hhincome <- lapply(pumslist_h, psrc_pums_median, stat_var = "HINCP") %>% 
-    data.table::rbindlist(fill=TRUE)
+    data.table::rbindlist(fill=TRUE) 
 results[["income"]] <- rs_hhincome
 ```
-
 
 ```{r}
 #| label: income_plot
@@ -85,7 +82,6 @@ rs_poverty <- lapply(pumslist_p, psrc_pums_count, group_vars = "poverty", incl_n
 results[["poverty"]] <- rs_poverty[poverty == "Yes"]
 ```
 
-
 ```{r}
 #| label: poverty_plot
 #p_poverty <- plot_rates(filter(rs_poverty, poverty == "Yes"),
@@ -98,7 +94,6 @@ p_poverty <- plot_line_rates(
 
 plot(p_poverty)
 ```
-
 
 ### Low income rates
 
@@ -251,7 +246,6 @@ rs_rent_burden <- lapply(pumslist_h, psrc_pums_count, group_vars = "rent_burden"
 results[["renter_cost_burden"]] <- rs_rent_burden[
     rent_burden %in% c("Greater than 50 percent", "Between 30 and 50 percent")]
 ```
-
 
 ```{r}
 #| label: renter_cost_plot
