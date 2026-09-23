@@ -1,0 +1,99 @@
+---
+title: "Industry Opportunity and Workforce Equity"
+format:
+  html:
+    toc: true
+    code-fold: true
+execute:
+  echo: false
+  warning: false
+  message: false
+editor: visual
+---
+
+This report identifies industries with projected employment growth and median wages above the living-wage threshold, then compares their workforce composition with the overall workforce age 16 and older.
+
+```{r setup}
+# Quarto evaluates this document from its containing Industry directory.
+# The sourced analysis script uses paths relative to that same directory.
+source("industry_analysis.R")
+source("industry_vizes.R")
+
+library(data.table)
+library(dplyr)
+library(ggplot2)
+```
+
+<!-- ## Industry concentration crosstab -->
+
+<!-- Each `*_diff` field is the industry's share for that race/ethnicity group minus the overall workforce share. Positive values indicate overrepresentation. Each `*_z` field is the corresponding approximate Z-score; larger absolute values indicate stronger evidence that the difference is distinct from zero. -->
+
+<!-- ```{r concentration-crosstab} -->
+
+<!-- #| tbl-cap: "Race/ethnicity concentration differences and Z-scores by industry" -->
+
+<!-- crosstab_display <- copy(naics_conc_crosstab) -->
+
+<!-- setnames(crosstab_display, "sector", "Industry") -->
+
+<!-- numeric_cols <- names(crosstab_display)[vapply(crosstab_display, is.numeric, logical(1))] -->
+
+<!-- crosstab_display[, (numeric_cols) := lapply(.SD, round, digits = 3), .SDcols = numeric_cols] -->
+
+<!-- knitr::kable(crosstab_display, format = "html", digits = 3) -->
+
+<!-- ``` -->
+
+## Workforce equity overview
+
+Bubble position shows the difference between each industry's POC and female shares and the overall workforce shares. Bubble area represents projected 2034 employment; fill represents median annual wage.
+
+```{r equity-bubble, fig.width=12, fig.height=8}
+#| fig-cap: "POC and female workforce concentration by industry"
+
+make_bubble_plot_naics(filter(naics_stats, cagr_24_34 > 0.01))
+```
+
+## Female and POC share differences
+
+The paired columns compare each industry's female and POC shares with the corresponding shares in the overall workforce. Industries follow the same display order as the table and heatmap.
+
+```{r equity-dot-display, fig.width=12, fig.height=10}
+#| fig-cap: "Female and POC workforce share differences by industry"
+
+make_equity_dot_plot_naics(filter(naics_stats, cagr_24_34 > 0.01))
+```
+
+## Race and ethnicity concentration heatmap
+
+This view shows the direction and size of each industry's concentration difference across all race/ethnicity groups.
+
+```{r concentration-heatmap, fig.width=12, fig.height=9}
+#| fig-cap: "Race/ethnicity share differences relative to the overall workforce"
+
+heatmap_data <- as.data.frame(filter(naics_conc_long, cagr_24_34 > 0.01)) %>%
+  mutate(
+    sector = factor(sector, levels = rev(unique(naics_stats$sector))),
+    prace_adj = factor(prace_adj)
+  )
+
+ggplot(heatmap_data, aes(x = prace_adj, y = sector, fill = diff_share)) +
+  geom_tile(color = "white", linewidth = 0.25) +
+  geom_text(aes(label = scales::percent(diff_share, accuracy = 0.1)), size = 3) +
+  scale_fill_gradient2(
+    low = "#2166AC", mid = "white", high = "#B2182B", midpoint = 0,
+    labels = scales::label_percent(accuracy = 1),
+    name = "Share difference"
+  ) +
+  labs(
+    x = NULL,
+    y = NULL,
+    subtitle = "Positive values indicate overrepresentation in the industry."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    legend.position = "bottom"
+  )
+```
