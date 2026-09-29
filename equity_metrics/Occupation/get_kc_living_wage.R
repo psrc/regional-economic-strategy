@@ -6,7 +6,7 @@
 ## https://livingwage.mit.edu/counties/53033, Accessed on [access date]" 
 ##
 ## Usage:
-##   source("get_kc_living_wage.R")
+##   source(here::here("equity_metrics", "Occupation", "get_kc_living_wage.R"))
 ##   living_wage <- get_mit_living_wage_king_2adults_2children()
 ##
 ## Returns:

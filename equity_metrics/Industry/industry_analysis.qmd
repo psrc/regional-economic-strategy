@@ -18,31 +18,12 @@ This report identifies industries with projected employment growth and median wa
 # The sourced analysis script uses paths relative to that same directory.
 source("industry_analysis.R")
 source("industry_vizes.R")
+source("../render_table.R")
 
 library(data.table)
 library(dplyr)
 library(ggplot2)
 ```
-
-<!-- ## Industry concentration crosstab -->
-
-<!-- Each `*_diff` field is the industry's share for that race/ethnicity group minus the overall workforce share. Positive values indicate overrepresentation. Each `*_z` field is the corresponding approximate Z-score; larger absolute values indicate stronger evidence that the difference is distinct from zero. -->
-
-<!-- ```{r concentration-crosstab} -->
-
-<!-- #| tbl-cap: "Race/ethnicity concentration differences and Z-scores by industry" -->
-
-<!-- crosstab_display <- copy(naics_conc_crosstab) -->
-
-<!-- setnames(crosstab_display, "sector", "Industry") -->
-
-<!-- numeric_cols <- names(crosstab_display)[vapply(crosstab_display, is.numeric, logical(1))] -->
-
-<!-- crosstab_display[, (numeric_cols) := lapply(.SD, round, digits = 3), .SDcols = numeric_cols] -->
-
-<!-- knitr::kable(crosstab_display, format = "html", digits = 3) -->
-
-<!-- ``` -->
 
 ## Workforce equity overview
 
@@ -56,10 +37,10 @@ make_bubble_plot_naics(filter(naics_stats, cagr_24_34 > 0.01))
 
 ## Female and POC share differences
 
-The paired columns compare each industry's female and POC shares with the corresponding shares in the overall workforce. Industries follow the same display order as the table and heatmap.
+The paired columns compare each industry's female and POC shares with the corresponding shares in the overall workforce. The right-hand bars show median annual wages on a shared scale, with pale yellow indicating lower wages and midnight blue indicating higher wages. Industries follow the same display order as the table and heatmap.
 
 ```{r equity-dot-display, fig.width=12, fig.height=10}
-#| fig-cap: "Female and POC workforce share differences by industry"
+#| fig-cap: "Female and POC workforce share differences and median annual wages by industry"
 
 make_equity_dot_plot_naics(filter(naics_stats, cagr_24_34 > 0.01))
 ```
@@ -96,4 +77,27 @@ ggplot(heatmap_data, aes(x = prace_adj, y = sector, fill = diff_share)) +
     axis.text.x = element_text(angle = 35, hjust = 1),
     legend.position = "bottom"
   )
+```
+
+## Industry concentration crosstab
+
+Each `*_diff` field is the industry's share for that race/ethnicity group minus the overall workforce share. Positive values indicate overrepresentation. Each `*_z` field is the corresponding approximate Z-score; larger absolute values indicate stronger evidence that the difference is distinct from zero.
+
+
+## Sector summary
+
+This table includes all sectors in `naics_stats`, including those below the growth threshold used in the visualizations. Annual growth is the compound annual growth rate for 2024–2034.
+
+```{r sector-summary, echo=FALSE}
+render_data_table(
+  naics_stats[emp_2034 > 5000, .(
+    Sector = sector,
+    `Employment, 2024` = emp_2024,
+    `Employment, 2034` = emp_2034,
+    `Annual growth (%)` = round(100 * cagr_24_34, 1),
+    `Median annual wage ($)` = round(WAGP_median)
+  )],
+  caption = "Sector summary",
+  digits = 1
+)
 ```

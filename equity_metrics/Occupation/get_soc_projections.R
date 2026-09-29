@@ -4,7 +4,7 @@
 ## for King, Pierce, and Snohomish Counties and produce a combined total.
 ##
 ## Usage:
-##   source("get_soc_projections.R")
+##   source(here::here("equity_metrics", "Occupation", "get_soc_projections.R"))
 ##   data_list <- get_soc_projections()
 ##
 ## Returns:
@@ -21,21 +21,21 @@ get_soc_projections <- function() {
   })
 
   url_candidates <- c(
-    "https://esd.wa.gov/media/xlsx/3794/long-occup-proj-alt-2025.xlsx",
-    "https://esd.wa.gov/media/xlsx/3794/long-occup-proj-alt-2025xlsx"
+    "https://esd.wa.gov/media/xlsx/3794/2026-long-term-occupational-projections-wa-alt.xlsx",
+    "https://esd.wa.gov/media/xlsx/3794/2026-long-term-occupational-projections-wa-altxlsx"
   )
 
   sheet_names <- c("Seattle-King County", "Tacoma-Pierce", "Snohomish")
 
   canonical_targets <- c(
     soc = "SOC code",
-    emp_2023 = "Estimated employment 2023",
-    emp_2028 = "Estimated employment 2028",
-    emp_2033 = "Estimated employment 2033",
-    openings_growth_23_28 = "Average annual openings due to growth 2023-2028",
-    openings_growth_28_33 = "Average annual openings due to growth 2028-2033",
-    openings_total_23_28 = "Average annual total openings 2023-2028",
-    openings_total_28_33 = "Average annual total openings 2028-2033"
+    emp_2024 = "Estimated employment 2024",
+    emp_2029 = "Estimated employment 2029",
+    emp_2034 = "Estimated employment 2034",
+    openings_growth_24_29 = "Average annual openings due to growth 2024-2029",
+    openings_growth_29_34 = "Average annual openings due to growth 2029-2034",
+    openings_total_24_29 = "Average annual total openings 2024-2029",
+    openings_total_29_34 = "Average annual total openings 2029-2034"
   )
 
   normalize_label <- function(x) {
@@ -98,21 +98,22 @@ get_soc_projections <- function() {
       bind_rows(.id = "region") %>%
       group_by(soc) %>%
       summarise(
-        emp_2023 = sum(emp_2023, na.rm = TRUE),
-        emp_2028 = sum(emp_2028, na.rm = TRUE),
-        emp_2033 = sum(emp_2033, na.rm = TRUE),
-        openings_growth_23_28 = sum(openings_growth_23_28, na.rm = TRUE),
-        openings_growth_28_33 = sum(openings_growth_28_33, na.rm = TRUE),
-        openings_total_23_28 = sum(openings_total_23_28, na.rm = TRUE),
-        openings_total_28_33 = sum(openings_total_28_33, na.rm = TRUE),
+        emp_2024 = sum(emp_2024, na.rm = TRUE),
+        emp_2029 = sum(emp_2029, na.rm = TRUE),
+        emp_2034 = sum(emp_2034, na.rm = TRUE),
+        openings_growth_24_29 = sum(openings_growth_24_29, na.rm = TRUE),
+        openings_growth_29_34 = sum(openings_growth_29_34, na.rm = TRUE),
+        openings_total_24_29 = sum(openings_total_24_29, na.rm = TRUE),
+        openings_total_29_34 = sum(openings_total_29_34, na.rm = TRUE),
         .groups = "drop"
       ) %>%
       mutate(
-        openings_growth_23_33 = openings_growth_23_28 + openings_growth_28_33,
-        openings_total_23_33 = openings_total_23_28 + openings_total_28_33,
-        cagr_23_28 = if_else(emp_2023 > 0 & emp_2028 > 0, (emp_2028 / emp_2023)^(1/5) - 1, NA_real_),
-        cagr_28_33 = if_else(emp_2028 > 0 & emp_2033 > 0, (emp_2033 / emp_2028)^(1/5) - 1, NA_real_),
-        cagr_23_33 = if_else(emp_2023 > 0 & emp_2033 > 0, (emp_2033 / emp_2023)^(1/10) - 1, NA_real_)
+        # Source columns are average annual openings for two five-year periods.
+        openings_growth_24_34 = 5 * openings_growth_24_29 + 5 * openings_growth_29_34,
+        openings_total_24_34 = 5 * openings_total_24_29 + 5 * openings_total_29_34,
+        cagr_24_29 = if_else(emp_2024 > 0 & emp_2029 > 0, (emp_2029 / emp_2024)^(1/5) - 1, NA_real_),
+        cagr_29_34 = if_else(emp_2029 > 0 & emp_2034 > 0, (emp_2034 / emp_2029)^(1/5) - 1, NA_real_),
+        cagr_24_34 = if_else(emp_2024 > 0 & emp_2034 > 0, (emp_2034 / emp_2024)^(1/10) - 1, NA_real_)
       )
   }
 

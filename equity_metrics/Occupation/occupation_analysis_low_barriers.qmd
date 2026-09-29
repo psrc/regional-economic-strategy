@@ -1,0 +1,80 @@
+---
+title: "Low-Barrier Occupation Opportunity and Workforce Equity"
+format:
+  html:
+    toc: true
+    code-fold: true
+execute:
+  echo: false
+  warning: false
+  message: false
+editor: visual
+---
+
+This report identifies 3-digit SOC occupation groups with positive projected growth, a group median annual wage above the living-wage threshold, and more than 50% of projected openings requiring less than a bachelor's degree. Workforce comparisons include all workers in each qualifying group, relative to the overall workforce age 16 and older. Individual occupations within a qualifying group may require a degree or pay below the threshold.
+
+```{r setup}
+# Quarto evaluates this document from its containing Occupation directory.
+filter_type <- "low_barriers"
+source("occupation_analysis.R")
+source("occupation_vizes.R")
+source("../render_table.R")
+
+library(data.table)
+library(dplyr)
+library(ggplot2)
+```
+
+## Workforce equity overview
+
+Bubble position shows the difference between each occupation group's POC and female shares and the overall workforce shares. Bubble area represents projected openings through 2034; fill represents median annual wage.
+
+```{r equity-bubble, fig.width=12, fig.height=8}
+#| fig-cap: "POC and female workforce concentration by low-barrier occupation"
+
+make_focus_bubble_plot(soc_stats)
+```
+
+## Female and POC share differences
+
+The paired columns compare each SOC3 occupation group's female and POC shares with the corresponding shares in the overall workforce.
+
+```{r equity-dot-display, fig.width=12, fig.height=max(8, 0.4*nrow(soc_stats))}
+#| fig-cap: "Female and POC workforce share differences by low-barrier SOC3 occupation group"
+
+soc3_equity_stats <- copy(soc_stats) %>% setorder(soc3_code)
+
+make_equity_dot_plot_soc3(soc3_equity_stats)
+```
+
+## Race and ethnicity concentration heatmap
+
+This view shows the direction and strength of each occupation group's concentration difference across all race/ethnicity groups.
+
+```{r concentration-heatmap, fig.width=12, fig.height=max(8, 0.4*nrow(soc_stats))}
+#| fig-cap: "Race/ethnicity concentration relative to the overall workforce"
+
+make_race_conc_heatmap_z(race_conc_long, soc_stats, openings_min = 0)
+```
+
+## Occupation-group summary
+
+Projected openings are totals for 2024–2034. The education percentage is weighted by projected openings; unknown requirements remain in the denominator and do not count as requiring less than a bachelor's degree.
+
+```{r group-summary, echo=FALSE}
+render_data_table(
+  soc_stats[, .(
+    Occupation = Label,
+    `SOC3` = soc3_code,
+    `Employment, 2024` = emp_2024,
+    `Employment, 2034` = emp_2034,
+    `Annual growth (%)` = round(100 * cagr_24_34, 1),
+    `Openings, 2024–2034` = openings_total_24_34,
+    `Median annual wage ($)` = round(WAGP_median),
+    `Openings below bachelor's (%)` = round(100 * below_bachelors_share, 1),
+    `Education unknown (%)` = round(100 * education_unknown_share, 1)
+  )],
+  caption = "Occupation group summary",
+  digits = 1
+)
+```

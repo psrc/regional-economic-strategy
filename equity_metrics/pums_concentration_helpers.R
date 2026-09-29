@@ -2,7 +2,7 @@
 # (used by both the Occupation/SOC and Industry/NAICS equity workflows).
 #
 # Usage:
-#   source("pums_concentration_helpers.R")
+#   source(here::here("equity_metrics", "pums_concentration_helpers.R"))
 
 # ---- Concentration metrics ----
 # TVD(P,Q) = 0.5 * sum_i |p_i - q_i| across categories i.

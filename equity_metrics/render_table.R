@@ -1,5 +1,8 @@
 library(DT)
 
+# Usage:
+#   source(here::here("equity_metrics", "render_table.R"))
+
 # Render a data.frame/data.table as an interactive table with "Copy" and
 # "Export to CSV" buttons.
 #

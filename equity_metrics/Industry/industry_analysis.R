@@ -47,8 +47,8 @@ naics_projections <- get_naics_projections() %>%
 # naics_crosswalk.R supplies the CSV rules and first-match classifier.
 
 # Retrieve the PUMS data; filter to +16 workforce and add NAICS-projection industry code
-pums2024_5 <- get_psrc_pums(5, datayr, "p", pvars, dir)
-pums2024_5_wkfrc16 <- pums2024_5 %>%
+pums_all <- get_psrc_pums(5, datayr, "p", pvars, dir)
+pums_wkfrc16 <- pums_all %>%
   filter(
     !grepl("^Unemployed", as.character(SOCP)),
     grepl("^(Civilian|Armed) ", as.character(ESR)),
@@ -69,25 +69,25 @@ pums2024_5_wkfrc16 <- pums2024_5 %>%
     sector = factor(industry_regex$sector[industry_row], levels = sector_levels)
   ) %>% select(-industry_row) %>% ungroup()
 
-naics_median_pay <- psrc_pums_median(pums2024_5_wkfrc16,
+naics_median_pay <- psrc_pums_median(pums_wkfrc16,
                                      stat_var = "WAGP",
                                      group_vars = c("sector"),
                                      incl_na = FALSE) %>% setDT()
 
-wkfrc16_x_race <- psrc_pums_count(pums2024_5_wkfrc16,
+wkfrc16_x_race <- psrc_pums_count(pums_wkfrc16,
                                   group_vars = c("prace_adj"),
                                   incl_na = FALSE) %>% setDT()
 
-wkfrc16_x_sex  <- psrc_pums_count(pums2024_5_wkfrc16,
+wkfrc16_x_sex  <- psrc_pums_count(pums_wkfrc16,
                                   group_vars = c("SEX"),
                                   incl_na = FALSE) %>% setDT()
 
-wkfrc16_x_poc  <- psrc_pums_count(pums2024_5_wkfrc16,
+wkfrc16_x_poc  <- psrc_pums_count(pums_wkfrc16,
                                   group_vars = c("poc"),
                                   incl_na = FALSE) %>% setDT()
 
 # Flag groups with at least one observation
-pums2024_5_wkfrc16 <- pums2024_5_wkfrc16 %>%
+pums_wkfrc16 <- pums_wkfrc16 %>%
   group_by(sector, PRACE) %>%
   mutate(n_naics_x_race = sum(!is.na(WAGP))) %>%
   ungroup() %>%
@@ -98,29 +98,29 @@ pums2024_5_wkfrc16 <- pums2024_5_wkfrc16 %>%
   mutate(n_naics_x_sex = sum(!is.na(WAGP))) %>%
   ungroup()
 
-pay_x_race <- psrc_pums_median(filter(pums2024_5_wkfrc16, n_naics_x_race > 0), 
+pay_x_race <- psrc_pums_median(filter(pums_wkfrc16, n_naics_x_race > 0), 
                                stat_var = "WAGP",
                                group_vars = c("sector", "prace_adj"),
                                incl_na = FALSE) %>%
   filter(prace_adj != "Total")
 
-pay_x_sex  <- psrc_pums_median(filter(pums2024_5_wkfrc16, n_naics_x_sex > 0), 
+pay_x_sex  <- psrc_pums_median(filter(pums_wkfrc16, n_naics_x_sex > 0), 
                                stat_var = "WAGP",
                                group_vars = c("sector", "SEX"),
                                incl_na = FALSE) %>%
   filter(SEX != "Total")
 
-share_x_race <- psrc_pums_count(filter(pums2024_5_wkfrc16, n_naics_x_race > 0), 
+share_x_race <- psrc_pums_count(filter(pums_wkfrc16, n_naics_x_race > 0), 
                                 group_vars = c("sector", "prace_adj"),
                                 incl_na = FALSE) %>%
   filter(prace_adj != "Total")
 
-share_x_sex  <- psrc_pums_count(filter(pums2024_5_wkfrc16, n_naics_x_sex > 0), 
+share_x_sex  <- psrc_pums_count(filter(pums_wkfrc16, n_naics_x_sex > 0), 
                                 group_vars = c("sector", "SEX"),
                                 incl_na = FALSE) %>%
   filter(SEX != "Total")
 
-share_x_poc  <- psrc_pums_count(filter(pums2024_5_wkfrc16, n_naics_x_poc > 0),
+share_x_poc  <- psrc_pums_count(filter(pums_wkfrc16, n_naics_x_poc > 0),
                                 group_vars = c("sector", "poc"),
                                 incl_na = FALSE) %>%
   filter(poc != "Total")
