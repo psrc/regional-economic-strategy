@@ -60,12 +60,12 @@ render_data_table(tbl_pop, caption = "Population by Race/Ethnicity")
 
 ```{r median-household-income}
 
-rs_hhincome <- psrc_pums_median(pumsdata_h, stat_var = "HINCP", group_vars = c("HRACE"))
-tbl_hhincome <- filter(rs_hhincome, HRACE != "Total")
+rs_hhincome <- psrc_pums_median(pumsdata_h, stat_var = "HINCP", group_vars = c("PRACE"))
+tbl_hhincome <- filter(rs_hhincome, PRACE != "Total")
 
 p_hhincome <- plot_counts(
   tbl_hhincome,
-    xcol = "HRACE",
+    xcol = "PRACE",
     ycol = "HINCP_median"
 )
 
@@ -196,6 +196,7 @@ render_data_table(tbl_ed_attain, caption = "Educational Attainment by Race/Ethni
 source("https://raw.githubusercontent.com/psrc/equity-tracker/refs/heads/main/data_development/get_ospi_equity_indicators.R")
 
 ospi_kready <- get_k_readiness("https://data.wa.gov/resource/veeh-ue57.json") # 2025-26 school year
+# ospi_kready <- get_k_readiness("https://data.wa.gov/resource/2x4x-bzqs.json") # 2016-17 school year
 colnames(ospi_kready) <- tolower(colnames(ospi_kready))
 ospi_kready <- ospi_kready %>% filter(studentgrouptype == "FederalRaceEthnicity")
 rs_kready <- ospi_kready %>% 
@@ -225,13 +226,13 @@ render_data_table(rs_kready, caption = "Kindergarten Readiness by Race/Ethnicity
 ```{r homeownership}
 
 rs_own_rent <- psrc_pums_count(pumsdata_h, 
-    group_vars = c("HRACE", "OWN_RENT"), 
+    group_vars = c("PRACE", "OWN_RENT"), 
     incl_na=FALSE)
 tbl_own_rent <- filter(rs_own_rent, OWN_RENT == "Own")
 
 p_own_rent <- plot_rates(
     tbl_own_rent,
-    group_vars = c("HRACE"),
+    group_vars = c("PRACE"),
     rate_var = "share",
     whiskers = TRUE # error bars
 )
@@ -247,7 +248,7 @@ render_data_table(tbl_own_rent, caption = "Homeownership by Race/Ethnicity")
 
 ```{r renter-cost-burden}
 rs_rent_burden <- psrc_pums_count(pumsdata_h, 
-    group_vars = c("HRACE", "rent_burden"), 
+    group_vars = c("PRACE", "rent_burden"), 
     incl_na=FALSE)
 tbl_rent_burden <- filter(rs_rent_burden, 
            rent_burden %in% c("Greater than 50 percent",
@@ -255,7 +256,7 @@ tbl_rent_burden <- filter(rs_rent_burden,
 
 p_rent_burden <- plot_rates(
     tbl_rent_burden,
-    group_vars = c("HRACE", "rent_burden"), 
+    group_vars = c("PRACE", "rent_burden"), 
     rate_var = "share",
     whiskers = TRUE # error bars
 )
@@ -270,8 +271,8 @@ render_data_table(tbl_rent_burden, caption = "Renter Cost Burden by Race/Ethnici
 ### Health insurance coverage by race/ethnicity
 
 ```{r health-insurance}
-rs_health_insurance <- psrc_pums_count(pumsdata_p, 
-    group_vars = c("PRACE", "health_insurance"), 
+rs_health_insurance <- psrc_pums_count(pumsdata_p,
+    group_vars = c("PRACE", "health_insurance"),
     incl_na=FALSE)
 tbl_health_insurance <- filter(rs_health_insurance, health_insurance == "No health insurance")
 
@@ -292,12 +293,12 @@ render_data_table(tbl_health_insurance, caption = "Lack of Health Insurance by R
 ### Internet Access by race/ethnicity
 
 ```{r internet-access}
-rs_internet <- psrc_pums_count(pumsdata_h, group_vars = c("HRACE", "internet"))
+rs_internet <- psrc_pums_count(pumsdata_h, group_vars = c("PRACE", "internet"))
 tbl_internet <- filter(rs_internet, internet != "Total")
 
 p_internet <- psrcplot::static_bar_chart(
     t = tbl_internet,
-    y = "HRACE",
+    y = "PRACE",
     x = "share",
     fill = "internet",
     title = "Internet Access by Race/Ethnicity",
@@ -345,7 +346,7 @@ if(save_data){
     results$health_insurance <- rs_health_insurance
     results$internet <- rs_internet
 
-    write_xlsx(results, path = paste0("equity_metrics", Sys.Date(), ".xlsx"))
+    write_xlsx(results, path = paste0("equity_metrics_", dyear, ".xlsx"))
 }
 
 ```

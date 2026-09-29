@@ -5,19 +5,15 @@ library(psrccensus)
 
 # pums_rds on local or shared drive for faster/more reliable access; otherwise use pums_rds = NULL
 jrds = "J:/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
-#jrds <- "~/J/Projects/Census/AmericanCommunitySurvey/Data/PUMS/pums_rds"
-#jrds <- NULL
 
 pvars <- c("AGEP",
            "ESR",                 # Employment status recode
            "ED_ATTAIN",           # Educational attainment
            "HICOV",               # Health insurance coverage
-           "NAICSP",              # Industry code
            "POVPIP",              # Income as a percentage of the poverty level
            "PRACE",               # PSRC non-overlapping race/ethnicity variable
            "RELSHIPP",            # Relationship variable (to exclude institutionalized)
            "SEX",
-           "SOCP3",               # Occupation code
            "WAGP"                 # Wage or salary income past 12 months      
 )
 
@@ -25,11 +21,15 @@ hvars <- c("ACCESSINET",          # Internet access
            "GRPIP",               # Household income as a percentage of the poverty level
            "GRNTP",               # Gross rent as a percentage of household income
            "HINCP",               # Household income past 12 months
-           "HRACE",               # PSRC non-overlapping race/ethnicity variable
+           "PRACE",               # PSRC non-overlapping race/ethnicity variable
            "OWN_RENT"             # Tenure (own/rent)
 )
 
 get_pums_res_equity_p <- function(dyear, span = 5, pums_rds = jrds){
+    if(dyear < 2012){
+      message("Health coverage data is not available for years prior to 2008.")
+      hvars <- setdiff(hvars, "ACCESSINET")
+    }
     if(dyear < 2019){
         pvars <- replace(pvars, pvars == "RELSHIPP", "RELP")
     }
@@ -42,7 +42,7 @@ get_pums_res_equity_p <- function(dyear, span = 5, pums_rds = jrds){
 
 get_pums_res_equity_h <- function(dyear, span = 5, pums_rds = jrds){
     if(dyear < 2017){
-        message("Internet access data is not available for years prior to 2017.")
+        message("Internet access data is not available for years prior to 2013.")
         hvars <- setdiff(hvars, "ACCESSINET")
     }
     # Variable changed names w/ 2020 data; swap name temporarily for older data
@@ -80,7 +80,7 @@ prep_renter_burden_data <- function(raw_pumsdata_h){
 
 # Add personal variables --------------
 
-# Add personal health insurance variable 
+# Add personal health insurance variable
 # - required input variables: HICOV, ESR, AGEP, RELSHIPP
 prep_health_insurance_data <- function(raw_pumsdata_p){
   prepped_pumsdata_p <- raw_pumsdata_p %>% mutate(
